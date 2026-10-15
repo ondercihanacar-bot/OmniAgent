@@ -327,6 +327,7 @@
         </div>
     </div>
     <div class="header-actions">
+        <button style="background:#065f46; border-color:#10b981;" onclick="openWaModal()">📲 WhatsApp Bağla</button>
         <button onclick="sendTestAlert()">🔔 Test Bildirimi Gönder</button>
         <button class="btn-primary" onclick="openBroadcastModal()">⚡ Tüm Sunuculara Komut</button>
         <button onclick="refreshAll()">🔄 Yenile</button>
@@ -378,6 +379,35 @@
             <span>🚨 Canlı Alarm, Kesinti & Otonom Müdahale Akışı</span>
         </div>
         <div class="alerts-box" id="alertsContainer"></div>
+    </div>
+</div>
+
+<!-- WhatsApp & Bildirim Bağlama Modal -->
+<div class="modal-backdrop" id="waModal">
+    <div class="modal">
+        <h3>📲 WhatsApp Anlık Bildirim Bağlantısı</h3>
+        <p style="font-size:13px; color:#cbd5e1; margin-bottom:14px;">
+            Sunucu kesintileri, elektrik/internet kopmaları ve mesai dışı girişlerin doğrudan <b>WhatsApp</b> telefonunuza gelmesi için:
+        </p>
+        <div style="background:#0f172a; border:1px solid #1e3a8a; border-radius:10px; padding:12px; margin-bottom:14px; font-size:12.5px;">
+            <b>⚡ 20 Saniyede Ücretsiz Aktivasyon (CallMeBot):</b><br>
+            1. Telefonunuzdan şu numaraya WhatsApp mesajı gönderin: <b><code>+34 644 71 81 99</code></b><br>
+            2. Mesaj olarak şunu yazın: <b><code>I allow callmebot to send me messages</code></b><br>
+            3. Size saniyeler içinde gelen <b>6 haneli API Key</b> kodunu ve telefon numaranızı aşağıya girip kaydedin:
+        </div>
+        <div class="form-group">
+            <label>Telefon Numaranız (Ülke kodu ile, Örn: +90532XXXXXXX):</label>
+            <input type="text" id="waPhoneInput" placeholder="+905XXXXXXXXX">
+        </div>
+        <div class="form-group">
+            <label>WhatsApp'tan Gelen 6 Haneli API Key:</label>
+            <input type="text" id="waKeyInput" placeholder="Örn: 123456">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:14px;">
+            <button onclick="document.getElementById('waModal').style.display='none'">Kapat</button>
+            <button class="btn-primary" onclick="saveWhatsAppSettings()">💾 Kaydet ve Test Mesajı Gönder</button>
+        </div>
+        <div class="cmd-output" id="waStatusOut" style="display:none;"></div>
     </div>
 </div>
 
@@ -631,6 +661,43 @@
             }
         }
         outBox.innerText = "⚠️ Zaman aşımı: Sunucu henüz yanıt döndürmedi.";
+    }
+
+    async function openWaModal() {
+        document.getElementById("waStatusOut").style.display = "none";
+        document.getElementById("waModal").style.display = "flex";
+        try {
+            const cfg = await apiCall("/api/config");
+            const wa = (cfg.notifications && cfg.notifications.whatsapp) || {};
+            if (wa.phone && !wa.phone.includes("XXXX")) document.getElementById("waPhoneInput").value = wa.phone;
+            if (wa.api_key && !wa.api_key.includes("BURAYA")) document.getElementById("waKeyInput").value = wa.api_key;
+        } catch (e) {}
+    }
+
+    async function saveWhatsAppSettings() {
+        const phone = document.getElementById("waPhoneInput").value.trim();
+        const key = document.getElementById("waKeyInput").value.trim();
+        const out = document.getElementById("waStatusOut");
+        out.style.display = "block";
+        out.innerText = "⏳ WhatsApp ayarları kaydediliyor ve test mesajı gönderiliyor...";
+
+        try {
+            const cfg = await apiCall("/api/config");
+            if (!cfg.notifications) cfg.notifications = {};
+            cfg.notifications.whatsapp = {
+                enabled: true,
+                provider: "callmebot",
+                api_url: "https://api.callmebot.com/whatsapp.php",
+                phone: phone,
+                api_key: key
+            };
+            await apiCall("/api/config/update", "POST", cfg);
+            await apiCall("/api/notifications/test", "POST", {});
+            out.innerText = "✅ WhatsApp bağlantısı aktif edildi ve telefonunuza test mesajı gönderildi!";
+            setTimeout(loadAlerts, 600);
+        } catch (e) {
+            out.innerText = "❌ Kaydetme hatası: " + e.message;
+        }
     }
 
     async function sendTestAlert() {
