@@ -17,7 +17,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-HUB_URL = "http://127.0.0.1:8088"
+HUB_URL = "https://omniagent-hub.onrender.com"
 AUTH_TOKEN = "OmniAgentSecretToken2026"
 
 

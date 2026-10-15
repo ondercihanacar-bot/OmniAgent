@@ -1,5 +1,5 @@
 {
-  "HubUrl": "http://127.0.0.1:8088",
+  "HubUrl": "https://omniagent-hub.onrender.com",
   "AuthToken": "OmniAgentSecretToken2026",
   "ServerId": "MUSTERI-TEST-01",
   "CustomerName": "Merkez Test Sunucusu",

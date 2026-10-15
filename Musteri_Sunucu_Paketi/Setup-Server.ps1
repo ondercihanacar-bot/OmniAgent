@@ -20,10 +20,10 @@ if ([string]::IsNullOrWhiteSpace($inputServerId)) { $inputServerId = $defaultSer
 $inputCustomer = Read-Host "2. Müşteri / Firma Adı [Varsayılan: $inputServerId]"
 if ([string]::IsNullOrWhiteSpace($inputCustomer)) { $inputCustomer = $inputServerId }
 
-$defaultHub = "http://192.168.3.37:8088"
-$inputHub = Read-Host "3. Merkez Hub Adresi (Senin Bilgisayarının IP'si) [Varsayılan: $defaultHub]"
+$defaultHub = "https://omniagent-hub.onrender.com"
+$inputHub = Read-Host "3. Merkez Bulut Hub Adresi [Varsayılan: $defaultHub]"
 if ([string]::IsNullOrWhiteSpace($inputHub)) { $inputHub = $defaultHub }
-if ($inputHub -notmatch "^http") { $inputHub = "http://$($inputHub):8088" }
+if ($inputHub -notmatch "^http") { $inputHub = "https://$inputHub" }
 
 $defaultGw = "192.168.1.1"
 $inputGw = Read-Host "4. SonicWall / Modem IP Adresi [Varsayılan: $defaultGw]"

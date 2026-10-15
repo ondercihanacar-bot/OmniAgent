@@ -79,7 +79,7 @@ function Show-Speech([string]$Title, [string]$Message) {
 
 $robotContainer.Add_MouseLeftButtonUp({
     try {
-        $res = Invoke-RestMethod -Uri "http://127.0.0.1:8088/api/reports/summary" -Headers @{"X-Auth-Token"="OmniAgentSecretToken2026"} -TimeoutSec 3
+        $res = Invoke-RestMethod -Uri "https://omniagent-hub.onrender.com/api/reports/summary" -Headers @{"X-Auth-Token"="OmniAgentSecretToken2026"} -TimeoutSec 5
         $msg = "Aktif Sunucu: $($res.online_servers)/$($res.total_servers)`nOnarılan: $($res.healed_issues_24h) | Güvenlik: $($res.security_events_24h)"
         Show-Speech "OMNIAGENT CANLI DURUM" $msg
     } catch {
@@ -90,7 +90,7 @@ $robotContainer.Add_MouseLeftButtonUp({
 $contextMenu = New-Object System.Windows.Controls.ContextMenu
 $itemDash = New-Object System.Windows.Controls.MenuItem
 $itemDash.Header = "🌐 Komuta Panelini Aç (Dashboard)"
-$itemDash.Add_Click({ Start-Process "http://localhost:8088" })
+$itemDash.Add_Click({ Start-Process "https://omniagent-hub.onrender.com" })
 $contextMenu.Items.Add($itemDash) | Out-Null
 
 $itemExit = New-Object System.Windows.Controls.MenuItem
