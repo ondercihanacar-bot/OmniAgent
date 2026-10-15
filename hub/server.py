@@ -471,9 +471,22 @@ class OmniHubHandler(BaseHTTPRequestHandler):
                 )
             elif data.get("offline_outage_report"):
                 rep = str(data.get("offline_outage_report"))
-                # 20 saniyenin altındaki anlık ağ/bulut dalgalanmalarını veya SonicWall sahte gateway hatalarını yoksay
-                is_micro = ("Süre: 8 sn" in rep or "Süre: 9 sn" in rep or "Süre: 10 sn" in rep or "Süre: 7 sn" in rep or "17:23:49 | Bitiş: 17:23:57" in rep)
-                if not is_micro and "Merkez Hub bulut sunucusuna ulaşılamadı" not in rep:
+                ignore_outage = False
+                if "Switch veya Firewall kesintisi" in rep or "Merkez Hub" in rep:
+                    ignore_outage = True
+                try:
+                    import re
+                    m_start = re.search(r"Başlangıcı:\s*([\d\-]+ [\d:]+)", rep)
+                    m_end = re.search(r"Bitiş:\s*([\d\-]+ [\d:]+)", rep)
+                    if m_start and m_end:
+                        t1 = time.mktime(time.strptime(m_start.group(1), "%Y-%m-%d %H:%M:%S"))
+                        t2 = time.mktime(time.strptime(m_end.group(1), "%Y-%m-%d %H:%M:%S"))
+                        if abs(t2 - t1) < 45:
+                            ignore_outage = True
+                except Exception:
+                    pass
+
+                if not ignore_outage:
                     record_alert(
                         sid, "WARNING", "INTERNET",
                         "🌐 İNTERNET KESİNTİ RAPORU (KARA KUTU)",
