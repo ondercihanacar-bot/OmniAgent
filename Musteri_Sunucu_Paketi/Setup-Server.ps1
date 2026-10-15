@@ -76,20 +76,12 @@ $Principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType
 Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $TriggerStartup -Settings $Settings -Principal $Principal -Description "OmniAgent 7/24 Autonomous Server Guardian" | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 
-# Masaüstüne Canlı Robot Kısayolu Bırak ve Başlat
-$DesktopPath = [Environment]::GetFolderPath("Desktop")
-$RobotBat = Join-Path $DesktopPath "OmniAgent_Robot.bat"
-"@echo off`nstart `"`" powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"C:\OmniAgent\OmniRobot.ps1`"" | Set-Content -Path $RobotBat -Encoding ASCII
-
-Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TargetDir\OmniRobot.ps1`"" -WindowStyle Hidden
-
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host " ✅ KURULUM BAŞARIYLA TAMAMLANDI!" -ForegroundColor Green
 Write-Host " 🖥️  Sunucu Kodu : $inputServerId ($inputCustomer)" -ForegroundColor Cyan
 Write-Host " 🌐 Merkez Hub  : $inputHub" -ForegroundColor Cyan
-Write-Host " 🔄 7/24 Servis : Aktif (Sunucu yeniden başlasa bile otomatik çalışır)" -ForegroundColor Cyan
-Write-Host " 🤖 Canlı Robot : Masaüstünde başlatıldı!" -ForegroundColor Cyan
+Write-Host " 🔄 7/24 Servis : Arka planda sessiz ve görünmez çalışıyor." -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""
 Read-Host "Çıkmak için ENTER tuşuna basın"
