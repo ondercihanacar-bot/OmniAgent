@@ -657,7 +657,22 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "saved" if ok else "error"})
             return
 
-        # 6. Test Bildirimi Gönder
+        # 6. Sunucu Kaydı Silme (Panelden veya API'den)
+        if path == "/api/servers/delete":
+            sid = data.get("server_id")
+            if sid:
+                cur.execute("DELETE FROM servers WHERE server_id = ?", (sid,))
+                cur.execute("DELETE FROM tasks WHERE server_id = ?", (sid,))
+                cur.execute("DELETE FROM alerts WHERE server_id = ?", (sid,))
+                conn.commit()
+                conn.close()
+                self._send_json(200, {"status": "deleted", "server_id": sid})
+                return
+            conn.close()
+            self._send_json(400, {"error": "server_id gerekli"})
+            return
+
+        # 7. Test Bildirimi Gönder
         if path == "/api/notifications/test":
             conn.close()
             dispatch_alert(

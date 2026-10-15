@@ -576,6 +576,7 @@
                     <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
                     <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
                     <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
+                    <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')">🗑️ Sil</button>
                 </div>
             </div>
             `;
@@ -697,6 +698,16 @@
             setTimeout(loadAlerts, 600);
         } catch (e) {
             out.innerText = "❌ Kaydetme hatası: " + e.message;
+        }
+    }
+
+    async function deleteServer(sid) {
+        if (!confirm(`[${sid}] sunucusu listeden silinsin mi?`)) return;
+        try {
+            await apiCall("/api/servers/delete", "POST", { server_id: sid });
+            refreshAll();
+        } catch (e) {
+            alert("Silme hatası: " + e.message);
         }
     }
 
