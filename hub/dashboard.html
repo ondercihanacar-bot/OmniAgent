@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniAgent | 7/24 Otonom Sunucu & Güvenlik Komuta Merkezi</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --bg-card: #111827;
+            --bg-card-hover: #1e293b;
+            --border: #1f2937;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --purple: #a855f7;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        /* Şifreli Giriş Ekranı (Login Overlay) */
+        #loginOverlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #090d16 75%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: rgba(17, 24, 39, 0.95);
+            border: 1px solid #312e81;
+            border-radius: 18px;
+            padding: 36px 32px;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+        }
+        .login-box h2 { font-size: 22px; margin-bottom: 6px; color: #fff; }
+        .login-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; }
+        .login-box input {
+            width: 100%;
+            padding: 13px;
+            background: #090d16;
+            border: 1px solid #334155;
+            color: #fff;
+            border-radius: 10px;
+            font-size: 18px;
+            text-align: center;
+            letter-spacing: 6px;
+            margin-bottom: 14px;
+            outline: none;
+        }
+        .login-box input:focus { border-color: var(--accent); }
+        .login-err { color: var(--red); font-size: 13px; margin-bottom: 10px; display: none; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, #0f172a 0%, #1e1b4b 100%);
+            padding: 18px 26px;
+            border-radius: 14px;
+            border: 1px solid #312e81;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .pulse-dot {
+            width: 14px; height: 14px;
+            background: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 12px var(--green);
+            animation: pulse 2s infinite;
+        }
+        .pulse-dot.err {
+            background: var(--red);
+            box-shadow: 0 0 12px var(--red);
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
+        .brand span { color: var(--accent); font-size: 13px; display: block; }
+        .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        button {
+            background: #1e293b;
+            color: #fff;
+            border: 1px solid #334155;
+            padding: 9px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #334155; border-color: var(--accent); }
+        button.btn-primary { background: #0284c7; border-color: #0ea5e9; }
+        button.btn-primary:hover { background: #0369a1; }
+        button.btn-danger { background: #991b1b; border-color: #ef4444; }
+
+        /* KPI Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 16px 20px;
+            border-radius: 12px;
+        }
+        .kpi-title { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; }
+        .kpi-val { font-size: 28px; font-weight: 800; margin-top: 6px; }
+
+        /* Sade Öngörü Raporu */
+        .summary-banner {
+            background: linear-gradient(135deg, #111827 0%, #172554 100%);
+            border: 1px solid #1d4ed8;
+            border-radius: 12px;
+            padding: 16px 22px;
+            margin-bottom: 22px;
+        }
+        .summary-banner h3 {
+            color: #60a5fa;
+            font-size: 15px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .warning-list { list-style: none; font-size: 14px; }
+        .warning-list li { padding: 4px 0; }
+
+        /* Main Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 1100px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Server Cards */
+        .servers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            gap: 16px;
+        }
+        .srv-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            position: relative;
+            overflow: hidden;
+        }
+        .srv-card.online { border-top: 4px solid var(--green); }
+        .srv-card.offline { border-top: 4px solid var(--red); background: #1a1116; }
+        .srv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+        .srv-name { font-size: 17px; font-weight: 700; color: #fff; }
+        .srv-sub { font-size: 12px; color: var(--text-muted); }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .badge-online { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; }
+        .badge-offline { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
+
+        .metrics-bars { margin: 12px 0; display: grid; gap: 8px; }
+        .metric-row { font-size: 12px; }
+        .metric-label { display: flex; justify-content: space-between; margin-bottom: 3px; color: #cbd5e1; }
+        .progress { width: 100%; height: 7px; background: #1e293b; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+
+        .info-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin: 12px 0;
+        }
+        .pill {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 4px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            color: #e2e8f0;
+        }
+        .srv-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid #1f2937;
+            flex-wrap: wrap;
+        }
+        .srv-actions button { padding: 6px 10px; font-size: 12px; }
+
+        /* Alerts Feed */
+        .alerts-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            max-height: 680px;
+            overflow-y: auto;
+        }
+        .alert-item {
+            padding: 12px;
+            border-radius: 10px;
+            background: #161f30;
+            border-left: 4px solid var(--accent);
+            margin-bottom: 10px;
+            font-size: 13px;
+        }
+        .alert-item.CRITICAL { border-left-color: var(--red); background: rgba(239, 68, 68, 0.08); }
+        .alert-item.WARNING { border-left-color: var(--yellow); }
+        .alert-item.HEALED { border-left-color: var(--purple); background: rgba(168, 85, 247, 0.08); }
+        .alert-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .alert-title { font-weight: 700; color: #fff; margin-bottom: 3px; }
+        .alert-msg { white-space: pre-wrap; color: #cbd5e1; font-size: 12px; }
+
+        /* Modal */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+        .modal {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 14px;
+            width: 90%;
+            max-width: 640px;
+            padding: 22px;
+        }
+        .modal h3 { margin-bottom: 14px; color: var(--accent); }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            background: #090d16;
+            border: 1px solid #334155;
+            color: #fff;
+            border-radius: 8px;
+            font-family: Consolas, monospace;
+        }
+        .cmd-output {
+            background: #05080f;
+            color: #34d399;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 10px;
+            border: 1px solid #1e293b;
+        }
+    </style>
+</head>
+<body>
+
+<!-- YÖNETİCİ ŞİFRE GİRİŞ EKRANI -->
+<div id="loginOverlay">
+    <div class="login-box">
+        <div style="font-size:42px; margin-bottom:10px;">🛡️</div>
+        <h2>OMNIAGENT KOMUTA MERKEZİ</h2>
+        <p>7/24 Otonom Sunucu & Güvenlik Yönetim Paneli</p>
+        <div class="login-err" id="loginErr">❌ Hatalı yönetici şifresi!</div>
+        <input type="password" id="adminPassInput" placeholder="••••" onkeydown="if(event.key==='Enter') doLogin()" autofocus>
+        <button class="btn-primary" style="width:100%; padding:12px; font-size:15px;" onclick="doLogin()">🔓 Giriş Yap</button>
+    </div>
+</div>
+
+<header>
+    <div class="brand">
+        <div class="pulse-dot" id="hubStatusDot"></div>
+        <div>
+            <h1>OMNIAGENT KOMUTA MERKEZİ</h1>
+            <span id="hubStatusSub">7/24 Otonom Sunucu, Güvenlik Duvarı, Elektrik & İnternet Takip Sistemi</span>
+        </div>
+    </div>
+    <div class="header-actions">
+        <button onclick="sendTestAlert()">🔔 Test Bildirimi Gönder</button>
+        <button class="btn-primary" onclick="openBroadcastModal()">⚡ Tüm Sunuculara Komut</button>
+        <button onclick="refreshAll()">🔄 Yenile</button>
+        <button class="btn-danger" onclick="doLogout()">🔒 Kilitle</button>
+    </div>
+</header>
+
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-title">Toplam Müşteri Sunucusu</div>
+        <div class="kpi-val" id="kpiTotal">0</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-title">Çevrimiçi (7/24 Aktif)</div>
+        <div class="kpi-val" style="color: var(--green);" id="kpiOnline">0</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-title">Kesinti / Erişilemeyen</div>
+        <div class="kpi-val" style="color: var(--red);" id="kpiOffline">0</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-title">Otonom Onarılan (Son 24s)</div>
+        <div class="kpi-val" style="color: var(--purple);" id="kpiHealed">0</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-title">Güvenlik & Mesai Dışı Alarm</div>
+        <div class="kpi-val" style="color: var(--yellow);" id="kpiSec">0</div>
+    </div>
+</div>
+
+<div class="summary-banner">
+    <h3>🔮 Kahin Modu — Sade Öngörülü Sistem Raporu</h3>
+    <ul class="warning-list" id="predictiveList">
+        <li>✅ Tüm sistemler analiz ediliyor...</li>
+    </ul>
+</div>
+
+<div class="main-grid">
+    <div>
+        <div class="section-title">
+            <span>🖥️ Müşteri Sunucuları (Canlı Telemetri & Otonom Kontrol)</span>
+            <small style="color:var(--text-muted);" id="lastUpdateText"></small>
+        </div>
+        <div class="servers-grid" id="serversContainer"></div>
+    </div>
+
+    <div>
+        <div class="section-title">
+            <span>🚨 Canlı Alarm, Kesinti & Otonom Müdahale Akışı</span>
+        </div>
+        <div class="alerts-box" id="alertsContainer"></div>
+    </div>
+</div>
+
+<!-- Komut & Firewall Modal -->
+<div class="modal-backdrop" id="cmdModal">
+    <div class="modal">
+        <h3 id="modalTitle">Uzaktan Otonom Komut Gönder</h3>
+        <input type="hidden" id="modalServerId">
+        <div class="form-group">
+            <label>Hızlı Otonom Reçeteler:</label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:4px;">
+                <button onclick="setQuickRecipe('top_ram')">📊 En Çok RAM Tüketenler</button>
+                <button onclick="setQuickRecipe('quser')">👥 Açık RDP Kullanıcıları</button>
+                <button onclick="setQuickRecipe('services')">⚙️ Çalışan Servisler</button>
+                <button onclick="setQuickRecipe('events')">📋 Son Sistem Logları</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Çalıştırılacak PowerShell / Otonom Ajan Komutu:</label>
+            <textarea id="modalCmdInput" rows="3" placeholder="Örn: Restart-Service Spooler -Force"></textarea>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button onclick="closeModal()">Kapat</button>
+            <button class="btn-primary" onclick="executeModalCmd()">🚀 Hemen Çalıştır</button>
+        </div>
+        <div class="cmd-output" id="modalOutput" style="display:none;"></div>
+    </div>
+</div>
+
+<script>
+    const API_BASE = (window.location.protocol === "file:") ? "http://127.0.0.1:8088" : "";
+    let AUTH_TOKEN = localStorage.getItem("omni_auth_token") || "";
+
+    const RECIPES = {
+        top_ram: "Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 8 Name, Id, @{N='RAM_MB';E={[math]::Round($_.WorkingSet/1MB,1)}} | Format-Table -AutoSize",
+        quser: "quser",
+        services: "Get-Service | Where-Object {$_.Status -eq 'Running'} | Select-Object -First 15 Name, DisplayName | Format-Table -AutoSize",
+        events: "Get-WinEvent -LogName System -MaxEvents 10 | Select-Object TimeCreated, Id, LevelDisplayName, Message | Format-Table -Wrap",
+        clean_temp: "Remove-Item -Path $env:TEMP\\* -Recurse -Force -ErrorAction SilentlyContinue; Write-Output 'Temp klasoru otonom olarak temizlendi.'"
+    };
+
+    async function doLogin() {
+        const pw = document.getElementById("adminPassInput").value.trim();
+        const errEl = document.getElementById("loginErr");
+        errEl.style.display = "none";
+        try {
+            const res = await fetch(API_BASE + "/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: pw })
+            });
+            const data = await res.json();
+            if (res.status === 200 && data.auth_token) {
+                AUTH_TOKEN = data.auth_token;
+                localStorage.setItem("omni_auth_token", AUTH_TOKEN);
+                document.getElementById("loginOverlay").style.display = "none";
+                refreshAll();
+            } else {
+                errEl.style.display = "block";
+            }
+        } catch (e) {
+            errEl.innerText = "⚠️ Hub sunucusuna ulaşılamadı!";
+            errEl.style.display = "block";
+        }
+    }
+
+    function doLogout() {
+        localStorage.removeItem("omni_auth_token");
+        AUTH_TOKEN = "";
+        document.getElementById("adminPassInput").value = "";
+        document.getElementById("loginOverlay").style.display = "flex";
+    }
+
+    async function apiCall(path, method="GET", body=null) {
+        const opts = {
+            method,
+            headers: {
+                "X-Auth-Token": AUTH_TOKEN,
+                "Content-Type": "application/json"
+            }
+        };
+        if (body) opts.body = JSON.stringify(body);
+        const res = await fetch(API_BASE + path, opts);
+        if (res.status === 401) {
+            doLogout();
+            throw new Error("Unauthorized");
+        }
+        return await res.json();
+    }
+
+    function getBarColor(pct) {
+        if (pct >= 85) return "var(--red)";
+        if (pct >= 70) return "var(--yellow)";
+        return "var(--green)";
+    }
+
+    async function loadSummary() {
+        const data = await apiCall("/api/reports/summary");
+        document.getElementById("kpiTotal").innerText = data.total_servers || 0;
+        document.getElementById("kpiOnline").innerText = data.online_servers || 0;
+        document.getElementById("kpiOffline").innerText = data.offline_servers || 0;
+        document.getElementById("kpiHealed").innerText = data.healed_issues_24h || 0;
+        document.getElementById("kpiSec").innerText = data.security_events_24h || 0;
+
+        const ul = document.getElementById("predictiveList");
+        if (!data.predictive_warnings || data.predictive_warnings.length === 0) {
+            ul.innerHTML = "<li>🟢 <b>Tüm sunucular sağlıklı!</b> Yaklaşan disk doluluğu, elektrik kesintisi veya internet paket kaybı tespit edilmedi.</li>";
+        } else {
+            ul.innerHTML = data.predictive_warnings.map(w => `<li>${w}</li>`).join("");
+        }
+    }
+
+    async function loadServers() {
+        const data = await apiCall("/api/servers");
+        const container = document.getElementById("serversContainer");
+        const servers = data.servers || [];
+
+        if (servers.length === 0) {
+            container.innerHTML = `<div class="srv-card"><p style="color:var(--text-muted);">Henüz bağlı sunucu yok. Ajan başlatıldığında otomatik görünecektir.</p></div>`;
+            return;
+        }
+
+        container.innerHTML = servers.map(s => {
+            const online = s.is_online;
+            const diskUsedPct = s.disk_total_gb > 0 ? Math.round(((s.disk_total_gb - s.disk_free_gb) / s.disk_total_gb) * 100) : 0;
+            const users = (s.active_users || []).length > 0 ? s.active_users.join(", ") : "Oturum Yok";
+            const upsIcon = s.ups_status === "ON_BATTERY" ? `⚡ AKÜDE (%${s.ups_battery_pct})` : `🔌 Şebeke (%${s.ups_battery_pct})`;
+
+            return `
+            <div class="srv-card ${online ? 'online' : 'offline'}">
+                <div class="srv-header">
+                    <div>
+                        <div class="srv-name">${s.server_id} <small style="font-weight:400; color:#94a3b8;">(${s.customer_name || ''})</small></div>
+                        <div class="srv-sub">${s.hostname} • İç IP: ${s.ip_address} • WAN: ${s.wan_ip || '-'}</div>
+                    </div>
+                    <span class="badge ${online ? 'badge-online' : 'badge-offline'}">
+                        ${online ? 'ONLINE' : 'KESİNTİ (' + s.last_seen_sec_ago + 'sn)'}
+                    </span>
+                </div>
+
+                <div class="metrics-bars">
+                    <div class="metric-row">
+                        <div class="metric-label"><span>CPU Kullanımı</span><span>%${s.cpu_percent}</span></div>
+                        <div class="progress"><div class="progress-fill" style="width:${s.cpu_percent}%; background:${getBarColor(s.cpu_percent)}"></div></div>
+                    </div>
+                    <div class="metric-row">
+                        <div class="metric-label"><span>RAM Kullanımı (${s.total_ram_gb} GB)</span><span>%${s.ram_percent}</span></div>
+                        <div class="progress"><div class="progress-fill" style="width:${s.ram_percent}%; background:${getBarColor(s.ram_percent)}"></div></div>
+                    </div>
+                    <div class="metric-row">
+                        <div class="metric-label"><span>Disk C: (Boş: ${s.disk_free_gb} / ${s.disk_total_gb} GB)</span><span>%${diskUsedPct}</span></div>
+                        <div class="progress"><div class="progress-fill" style="width:${diskUsedPct}%; background:${getBarColor(diskUsedPct)}"></div></div>
+                    </div>
+                </div>
+
+                <div class="info-pills">
+                    <span class="pill">🌐 Ping: ${s.wan_ping_ms}ms | Kayıp: %${s.packet_loss_pct}</span>
+                    <span class="pill">${upsIcon}</span>
+                    <span class="pill">👤 Açık: ${users}</span>
+                    <span class="pill">💾 Yedek: ${s.backup_status || 'OK'}</span>
+                    <span class="pill">⏱️ Uptime: ${s.uptime_hours} sa</span>
+                </div>
+
+                <div class="srv-actions">
+                    <button class="btn-primary" onclick="openCmdModal('${s.server_id}')">💻 Komut / Müdahale</button>
+                    <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
+                    <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
+                    <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
+                </div>
+            </div>
+            `;
+        }).join("");
+
+        document.getElementById("lastUpdateText").innerText = "Son Güncelleme: " + new Date().toLocaleTimeString();
+    }
+
+    async function loadAlerts() {
+        const data = await apiCall("/api/alerts");
+        const container = document.getElementById("alertsContainer");
+        const alerts = data.alerts || [];
+
+        if (alerts.length === 0) {
+            container.innerHTML = `<p style="color:var(--text-muted); font-size:13px;">Henüz kayıtlı alarm bulunmuyor.</p>`;
+            return;
+        }
+
+        container.innerHTML = alerts.map(a => {
+            const dt = new Date(a.timestamp * 1000).toLocaleString("tr-TR");
+            return `
+            <div class="alert-item ${a.level}">
+                <div class="alert-meta">
+                    <span><b>[${a.server_id}]</b> • ${a.category}</span>
+                    <span>${dt}</span>
+                </div>
+                <div class="alert-title">${a.title}</div>
+                <div class="alert-msg">${a.message}</div>
+            </div>
+            `;
+        }).join("");
+    }
+
+    function openCmdModal(serverId) {
+        document.getElementById("modalServerId").value = serverId;
+        document.getElementById("modalTitle").innerText = `[${serverId}] Otonom Komut & PowerShell Terminali`;
+        document.getElementById("modalOutput").style.display = "none";
+        document.getElementById("modalOutput").innerText = "";
+        document.getElementById("cmdModal").style.display = "flex";
+    }
+
+    function openBroadcastModal() {
+        openCmdModal("ALL");
+        document.getElementById("modalTitle").innerText = "⚡ Tüm Aktif Sunuculara Toplu Komut Gönder";
+    }
+
+    function closeModal() {
+        document.getElementById("cmdModal").style.display = "none";
+    }
+
+    function setQuickRecipe(key) {
+        document.getElementById("modalCmdInput").value = RECIPES[key] || "";
+    }
+
+    async function runRecipeOnServer(serverId, recipeKey) {
+        openCmdModal(serverId);
+        document.getElementById("modalCmdInput").value = RECIPES[recipeKey] || "";
+        await executeModalCmd();
+    }
+
+    async function executeModalCmd() {
+        const sid = document.getElementById("modalServerId").value;
+        const cmd = document.getElementById("modalCmdInput").value.trim();
+        if (!cmd) return;
+
+        const outBox = document.getElementById("modalOutput");
+        outBox.style.display = "block";
+        outBox.innerText = "⏳ Komut ajana iletildi, yanıt bekleniyor...";
+
+        const res = await apiCall("/api/tasks/create", "POST", { server_id: sid, command: cmd });
+        if (!res.task_id) {
+            outBox.innerText = "❌ Görev oluşturulamadı.";
+            return;
+        }
+
+        const taskId = res.task_id;
+        for (let i = 0; i < 40; i++) {
+            await new Promise(r => setTimeout(r, 1000));
+            const tres = await apiCall("/api/tasks/" + taskId);
+            if (tres.status === "COMPLETED" || tres.status === "FAILED") {
+                outBox.innerText = (tres.output || "") + (tres.error ? "\n[HATA]: " + tres.error : "") || "(Komut başarıyla çalıştı, çıktı üretmedi)";
+                return;
+            }
+        }
+        outBox.innerText = "⚠️ Zaman aşımı: Sunucu henüz yanıt döndürmedi.";
+    }
+
+    async function sendTestAlert() {
+        await apiCall("/api/notifications/test", "POST", {});
+        setTimeout(loadAlerts, 500);
+    }
+
+    async function refreshAll() {
+        if (!AUTH_TOKEN) return;
+        try {
+            await Promise.all([loadSummary(), loadServers(), loadAlerts()]);
+            document.getElementById("hubStatusDot").className = "pulse-dot";
+            document.getElementById("hubStatusSub").innerText = "🟢 Merkez Hub Bağlantısı Aktif (Canlı Veri Akışı)";
+        } catch (err) {
+            if (err.message !== "Unauthorized") {
+                document.getElementById("hubStatusDot").className = "pulse-dot err";
+                document.getElementById("hubStatusSub").innerText = "🔴 Hub Bağlantısı Bekleniyor...";
+            }
+        }
+    }
+
+    if (AUTH_TOKEN) {
+        document.getElementById("loginOverlay").style.display = "none";
+        refreshAll();
+    }
+    setInterval(refreshAll, 4000);
+</script>
+</body>
+</html>

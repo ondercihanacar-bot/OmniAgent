@@ -1,0 +1,34 @@
+{
+  "hub_port": 8088,
+  "admin_password": "2213",
+  "auth_token": "OmniAgentSecretToken2026",
+  "offline_threshold_sec": 35,
+  "work_hours": {
+    "start": "08:30",
+    "end": "18:30",
+    "work_days": [1, 2, 3, 4, 5]
+  },
+  "notifications": {
+    "desktop_popup_enabled": true,
+    "telegram": {
+      "enabled": false,
+      "bot_token": "BURAYA_TELEGRAM_BOT_TOKEN_YAZIN",
+      "chat_id": "BURAYA_TELEGRAM_CHAT_ID_YAZIN"
+    },
+    "whatsapp": {
+      "enabled": false,
+      "provider": "webhook",
+      "api_url": "https://api.callmebot.com/whatsapp.php",
+      "phone": "+905XXXXXXXXX",
+      "api_key": "BURAYA_API_KEY"
+    },
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "sender_email": "ornek@sirket.com",
+      "sender_password": "UYGULAMA_SIFRESI",
+      "receiver_email": "onder@sirket.com"
+    }
+  }
+}

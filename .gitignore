@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.db
+*.log
+offline_outage.json
+Musteri_Sunucu_Paketi.zip
+mascot/*.mp4
+Musteri_Sunucu_Paketi/*.mp4

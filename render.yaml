@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: omniagent-hub
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python hub/server.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: ADMIN_PASSWORD
+        value: "2213"
+      - key: AUTH_TOKEN
+        value: "OmniAgentSecretToken2026"

@@ -1,0 +1,17 @@
+{
+  "HubUrl": "http://127.0.0.1:8088",
+  "AuthToken": "OmniAgentSecretToken2026",
+  "ServerId": "MUSTERI-TEST-01",
+  "CustomerName": "Merkez Test Sunucusu",
+  "HeartbeatIntervalSec": 6,
+  "GatewayIp": "192.168.1.1",
+  "SonicWallUrl": "https://192.168.1.1",
+  "CriticalServices": [
+    "Spooler",
+    "W32Time"
+  ],
+  "AutoCleanDiskThresholdPct": 90,
+  "AutoBlockBruteForce": true,
+  "BruteForceThreshold": 5,
+  "BackupFolderToWatch": ""
+}
