@@ -701,6 +701,158 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "sent"})
             return
 
+        # 8. Müşteriye Özel Otonom AI Asistanı Sohbet & İşlem Endpoint'i
+        if path == "/api/assistant/chat":
+            cust_name = data.get("customer_name", "").strip()
+            server_id = data.get("server_id", "").strip()
+            prompt = data.get("prompt", "").strip()
+
+            if not prompt:
+                conn.close()
+                self._send_json(400, {"error": "prompt zorunlu"})
+                return
+
+            if cust_name:
+                cur.execute("SELECT * FROM servers WHERE customer_name = ? OR server_id = ?", (cust_name, cust_name))
+            elif server_id:
+                cur.execute("SELECT * FROM servers WHERE server_id = ?", (server_id,))
+            else:
+                cur.execute("SELECT * FROM servers")
+
+            srv_rows = [dict(r) for r in cur.fetchall()]
+            if not srv_rows and cust_name:
+                cur.execute("SELECT * FROM servers WHERE customer_name LIKE ? OR server_id LIKE ?", (f"%{cust_name}%", f"%{cust_name}%"))
+                srv_rows = [dict(r) for r in cur.fetchall()]
+
+            p_lower = prompt.lower()
+            response_text = ""
+            action_executed = None
+            task_id = None
+
+            target_sid = None
+            if server_id and any(s["server_id"] == server_id for s in srv_rows):
+                target_sid = server_id
+            elif "terminal" in p_lower or "termsrv" in p_lower:
+                for s in srv_rows:
+                    if "termsrv" in s["server_id"].lower() or "term" in s["hostname"].lower():
+                        target_sid = s["server_id"]
+                        break
+            if not target_sid and srv_rows:
+                target_sid = srv_rows[0]["server_id"]
+
+            if any(k in p_lower for k in ["kimler açık", "kullanıcı", "oturum", "quser", "kim var"]):
+                user_list = []
+                for s in srv_rows:
+                    try:
+                        u = json.loads(s.get("active_users_json") or "[]")
+                    except Exception:
+                        u = []
+                    u_str = ", ".join(u) if u else "Aktif kullanıcı yok"
+                    user_list.append(f"• **{s['server_id']}** ({s['hostname']}): {u_str}")
+                response_text = f"👥 **{cust_name or 'Müşteri'} Bünyesindeki Aktif Kullanıcılar:**\n\n" + "\n".join(user_list)
+                if target_sid and ("detay" in p_lower or "canlı" in p_lower):
+                    cmd = "quser"
+                    action_executed = f"{target_sid} üzerinde 'quser' canlı sorgulandı."
+                    task_id = str(uuid.uuid4())[:8]
+                    cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
+                                (task_id, target_sid, cmd, now))
+                    conn.commit()
+
+            elif any(k in p_lower for k in ["ram", "bellek", "hafıza", "cpu", "işlemci", "kasıyor", "yavaş"]):
+                perf_list = []
+                for s in srv_rows:
+                    perf_list.append(f"• **{s['server_id']}**: CPU %{s.get('cpu_percent', 0)} | RAM %{s.get('ram_percent', 0)} ({s.get('total_ram_gb', 0)} GB) | C: Boş: {s.get('disk_free_gb', 0)} GB")
+                response_text = f"📊 **{cust_name or 'Müşteri'} Sunucu Performans Durumu:**\n\n" + "\n".join(perf_list)
+                if target_sid:
+                    cmd = "Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 5 ProcessName, @{Name='RAM(MB)';Expression={[math]::Round($_.WorkingSet64/1MB,1)}}, CPU | Format-Table -AutoSize"
+                    action_executed = f"{target_sid} üzerinde en çok RAM tüketen ilk 5 süreç listeleniyor."
+                    task_id = str(uuid.uuid4())[:8]
+                    cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
+                                (task_id, target_sid, cmd, now))
+                    conn.commit()
+
+            elif any(k in p_lower for k in ["disk", "temp", "temizle", "yer kalmadı", "alan aç"]):
+                disk_list = []
+                for s in srv_rows:
+                    disk_list.append(f"• **{s['server_id']}**: C: Boş: {s.get('disk_free_gb', 0)} GB / Toplam: {s.get('disk_total_gb', 0)} GB")
+                response_text = f"💾 **Disk Alanı Bilgisi:**\n\n" + "\n".join(disk_list)
+                if target_sid:
+                    cmd = "Remove-Item -Path $env:TEMP\\* -Recurse -Force -ErrorAction SilentlyContinue; Write-Output 'Windows Temp klasorleri basariyla temizlendi.'"
+                    action_executed = f"{target_sid} üzerinde otomatik disk temizliği başlatıldı."
+                    task_id = str(uuid.uuid4())[:8]
+                    cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
+                                (task_id, target_sid, cmd, now))
+                    conn.commit()
+
+            elif any(k in p_lower for k in ["arıza", "neden", "hata", "kesinti", "log", "problem", "niye"]):
+                sid_list = [s["server_id"] for s in srv_rows]
+                if sid_list:
+                    placeholders = ','.join('?' for _ in sid_list)
+                    cur.execute(f"SELECT * FROM alerts WHERE server_id IN ({placeholders}) ORDER BY timestamp DESC LIMIT 5", sid_list)
+                    recent = cur.fetchall()
+                else:
+                    recent = []
+                if recent:
+                    al_text = []
+                    for a in recent:
+                        t_str = time.strftime('%H:%M:%S', time.localtime(a['timestamp']))
+                        al_text.append(f"• [{t_str}] **{a['server_id']}** - {a['title']}: {a['message'][:120]}...")
+                    response_text = f"🔍 **{cust_name or 'Müşteri'} İçin Son Teşhis & Alarm Kayıtları:**\n\n" + "\n".join(al_text)
+                else:
+                    response_text = f"✅ **{cust_name or 'Müşteri'}** sunucularında son 24 saatte kaydedilmiş kritik bir arıza veya kesinti bulunmuyor. Tüm sunucular ONLINE ve sağlıklı."
+                if target_sid:
+                    cmd = "Get-WinEvent -FilterHashtable @{LogName='System'; Level=1,2; StartTime=(Get-Date).AddHours(-4)} -MaxEvents 5 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, Message | Format-Table -Wrap"
+                    action_executed = f"{target_sid} üzerinde son 4 saatin Windows Hata Logları (Error/Critical) inceleniyor."
+                    task_id = str(uuid.uuid4())[:8]
+                    cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
+                                (task_id, target_sid, cmd, now))
+                    conn.commit()
+
+            elif any(k in p_lower for k in ["spooler", "yazıcı", "print"]):
+                srv_name = target_sid or (srv_rows[0]["server_id"] if srv_rows else "SUNUCU")
+                cmd = "Restart-Service Spooler -Force; Get-Service Spooler | Select-Object Name, Status"
+                response_text = f"🔄 **{srv_name}** sunucusunda Print Spooler (Yazıcı) servisi yeniden başlatılıyor..."
+                action_executed = f"{srv_name} Spooler servisi yeniden başlatıldı."
+                task_id = str(uuid.uuid4())[:8]
+                cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
+                            (task_id, srv_name, cmd, now))
+                conn.commit()
+
+            else:
+                if target_sid:
+                    task_id = str(uuid.uuid4())[:8]
+                    cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 35)",
+                                (task_id, target_sid, prompt, now))
+                    conn.commit()
+                    response_text = f"⚡ Talimatınız **{target_sid}** sunucusuna iletildi. Otonom olarak yürütülüyor..."
+                    action_executed = f"Çalıştırılan komut: {prompt}"
+                else:
+                    response_text = f"🤖 **{cust_name or 'Müşteri'}** için talimatınız alındı. Lütfen yapmak istediğiniz işlemi belirtin (örn: 'Kimler açık?', 'RAM durumu nedir?', 'Spooler yeniden başlat' veya özel bir komut)."
+
+            conn.close()
+
+            task_output = ""
+            if task_id:
+                for _ in range(5):
+                    time.sleep(0.5)
+                    c2 = get_db()
+                    cur2 = c2.cursor()
+                    cur2.execute("SELECT status, output, error FROM tasks WHERE task_id = ?", (task_id,))
+                    tr = cur2.fetchone()
+                    c2.close()
+                    if tr and tr["status"] in ("COMPLETED", "FAILED"):
+                        task_output = (tr["output"] or "") + (f"\n[HATA]: {tr['error']}" if tr["error"] else "")
+                        break
+
+            self._send_json(200, {
+                "response": response_text,
+                "action": action_executed,
+                "task_id": task_id,
+                "task_output": task_output,
+                "target_server": target_sid
+            })
+            return
+
         conn.close()
         self._send_json(404, {"error": "Endpoint bulunamadı"})
 

@@ -347,6 +347,180 @@
             margin-top: 10px;
             border: 1px solid #1e293b;
         }
+
+        /* Müşteri AI Konuşma & Komuta Drawer */
+        .chat-drawer {
+            position: fixed;
+            top: 0;
+            right: -580px;
+            width: 540px;
+            max-width: 95vw;
+            height: 100vh;
+            background: #0b111e;
+            border-left: 1px solid #1e293b;
+            z-index: 1000;
+            box-shadow: -15px 0 35px rgba(0,0,0,0.75);
+            display: flex;
+            flex-direction: column;
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .chat-drawer.open { right: 0; }
+        .chat-drawer-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 999;
+        }
+        .chat-drawer-backdrop.open { display: block; }
+        .chat-header {
+            padding: 16px 20px;
+            background: #111827;
+            border-bottom: 1px solid #1f2937;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-header h3 { margin: 0; font-size: 16px; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .chat-header-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .chat-close-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 2px 8px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+        .chat-close-btn:hover { color: #fff; background: #1f2937; }
+        .chat-quick-actions {
+            padding: 10px 16px;
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+        .quick-pill {
+            background: #1e293b;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .quick-pill:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .chat-msg {
+            max-width: 88%;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .chat-msg.user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-msg.assistant {
+            align-self: flex-start;
+            background: #1e293b;
+            color: #e2e8f0;
+            border: 1px solid #334155;
+            border-bottom-left-radius: 2px;
+        }
+        .chat-msg.assistant .bot-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .chat-terminal-output {
+            background: #05080f;
+            color: #34d399;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: Consolas, monospace;
+            font-size: 11px;
+            max-height: 180px;
+            overflow-y: auto;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            border: 1px solid #1e293b;
+        }
+        .chat-footer {
+            padding: 12px 16px;
+            background: #111827;
+            border-top: 1px solid #1f2937;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .chat-input {
+            flex: 1;
+            background: #090d16;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #fff;
+            font-size: 13px;
+            outline: none;
+            resize: none;
+            height: 42px;
+            max-height: 100px;
+            font-family: inherit;
+        }
+        .chat-input:focus { border-color: var(--accent); }
+        .btn-chat-send {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 0 16px;
+            height: 42px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-chat-send:hover { filter: brightness(1.1); }
+        .btn-chat-open {
+            margin-left: auto;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: #fff;
+            border: none;
+            padding: 7px 14px;
+            font-weight: 600;
+            font-size: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-chat-open:hover { filter: brightness(1.15); transform: translateY(-1px); }
     </style>
 </head>
 <body>
@@ -424,6 +598,37 @@
             <span>🚨 Canlı Alarm, Kesinti & Otonom Müdahale Akışı</span>
         </div>
         <div class="alerts-box" id="alertsContainer"></div>
+</div>
+
+<!-- MÜŞTERİ AI KONUŞMA & İŞLEM PENCERESİ (DRAWER) -->
+<div class="chat-drawer-backdrop" id="chatDrawerBackdrop" onclick="closeCustomerChat()"></div>
+<div class="chat-drawer" id="chatDrawer">
+    <div class="chat-header">
+        <div>
+            <h3 id="chatCustTitle">🏢 Müşteri Asistanı</h3>
+            <div class="chat-header-sub" id="chatCustSubtitle">Yükleniyor...</div>
+        </div>
+        <button class="chat-close-btn" onclick="closeCustomerChat()">&times;</button>
+    </div>
+
+    <div class="chat-quick-actions">
+        <select id="chatServerSelect" style="background:#1e293b; color:#fff; border:1px solid #334155; border-radius:14px; padding:4px 10px; font-size:11px; outline:none;">
+            <option value="">Tüm Sunucular</option>
+        </select>
+        <button class="quick-pill" onclick="sendQuickPrompt('Kimler açık, hangi kullanıcılar bağlı?')">👥 Kimler Açık?</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('RAM ve CPU durumu nedir, sunucuyu ne yoruyor?')">📊 RAM & CPU</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Son 4 saatteki hata ve arıza loglarını analiz et')">🔍 Arıza Taraması</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Temp dosyalarını ve diski temizle')">🧹 Disk Temizle</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Spooler yazıcı servisini yeniden başlat')">🔄 Spooler Reset</button>
+    </div>
+
+    <div class="chat-body" id="chatMessages"></div>
+
+    <div class="chat-footer">
+        <textarea class="chat-input" id="chatInput" placeholder="Bu müşteri için bir soru veya talimat yazın... (Enter: Gönder)" onkeydown="handleChatKeyDown(event)"></textarea>
+        <button class="btn-chat-send" id="btnChatSend" onclick="submitChat()">
+            <span>Gönder</span> ➔
+        </button>
     </div>
 </div>
 
@@ -569,6 +774,7 @@
         const data = await apiCall("/api/servers");
         const container = document.getElementById("serversContainer");
         const servers = data.servers || [];
+        window.CACHE_SERVERS = servers;
 
         if (servers.length === 0) {
             container.innerHTML = `<div class="srv-card"><p style="color:var(--text-muted);">Henüz bağlı sunucu yok. Ajan başlatıldığında otomatik görünecektir.</p></div>`;
@@ -679,6 +885,9 @@
                         <span class="cust-tag">🌐 Dış IP (WAN): ${g.wan_ip}</span>
                         <span class="cust-tag">🖥️ ${g.servers.length} Sunucu</span>
                         ${groupBadge}
+                        <button class="btn-chat-open" onclick="openCustomerChat('${encodeURIComponent(g.title)}', '${g.wan_ip}')">
+                            💬 ${g.title} ile Konuş & İşlem Yap
+                        </button>
                     </div>
                 </div>
                 <div class="servers-grid">
@@ -820,6 +1029,155 @@
     async function sendTestAlert() {
         await apiCall("/api/notifications/test", "POST", {});
         setTimeout(loadAlerts, 500);
+    }
+
+    // --- MÜŞTERİ AI ASİSTANI (DRAWER) JS MANTIĞI ---
+    let currentChatCustomer = "";
+    let currentChatWanIp = "";
+    const customerChatHistories = {};
+
+    function openCustomerChat(encodedCustName, wanIp) {
+        const custName = decodeURIComponent(encodedCustName);
+        currentChatCustomer = custName;
+        currentChatWanIp = wanIp || "";
+
+        document.getElementById("chatCustTitle").innerText = `🏢 ${custName} — AI Asistanı`;
+        document.getElementById("chatCustSubtitle").innerText = `Dış IP: ${wanIp || 'Bilinmiyor'} • 7/24 Otonom Koruma Devrede`;
+        document.getElementById("chatDrawerBackdrop").classList.add("open");
+        document.getElementById("chatDrawer").classList.add("open");
+
+        const select = document.getElementById("chatServerSelect");
+        select.innerHTML = `<option value="">Tüm ${custName} Sunucuları</option>`;
+        if (window.CACHE_SERVERS) {
+            const custServers = window.CACHE_SERVERS.filter(s => (s.customer_name || s.server_id) === custName || s.wan_ip === wanIp);
+            custServers.forEach(s => {
+                select.innerHTML += `<option value="${s.server_id}">${s.server_id} (${s.ip_address})</option>`;
+            });
+        }
+
+        if (!customerChatHistories[custName]) {
+            customerChatHistories[custName] = [
+                {
+                    sender: "assistant",
+                    text: `Merhaba Önder Bey! **${custName}** sunucularının otonom yönetimindeyim.\n\nBu müşterideki sunucular için bana doğrudan Türkçe talimat verebilirsiniz. Örneğin:\n• *"Kimler açık, hangi oturumlar bağlı?"*\n• *"RAM ve CPU durumuna bak, sunucu kasıyor mu?"*\n• *"Temp ve disk temizliği yap"*\n• *"Son 4 saatte bir arıza veya hata logu var mı?"*`,
+                    output: ""
+                }
+            ];
+        }
+
+        renderChatMessages();
+        setTimeout(() => document.getElementById("chatInput").focus(), 300);
+    }
+
+    function closeCustomerChat() {
+        document.getElementById("chatDrawerBackdrop").classList.remove("open");
+        document.getElementById("chatDrawer").classList.remove("open");
+    }
+
+    function escapeHtml(text) {
+        if (!text) return "";
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
+    function renderChatMessages() {
+        const box = document.getElementById("chatMessages");
+        const list = customerChatHistories[currentChatCustomer] || [];
+        box.innerHTML = list.map(m => {
+            if (m.sender === "user") {
+                return `<div class="chat-msg user">${escapeHtml(m.text)}</div>`;
+            } else {
+                const outputHtml = m.output ? `<div class="chat-terminal-output">${escapeHtml(m.output)}</div>` : "";
+                const actionHtml = m.action ? `<div style="font-size:11px; color:#a78bfa; margin-bottom:4px;">⚡ <b>İşlem:</b> ${escapeHtml(m.action)}</div>` : "";
+                return `
+                <div class="chat-msg assistant">
+                    <div class="bot-badge"><span>🤖</span> OMNIAGENT AI</div>
+                    ${actionHtml}
+                    <div>${formatMarkdown(m.text)}</div>
+                    ${outputHtml}
+                </div>
+                `;
+            }
+        }).join("");
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function formatMarkdown(text) {
+        if (!text) return "";
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+            .replace(/\*(.*?)\*/g, '<i>$1</i>')
+            .replace(/`([^`]+)`/g, '<code style="background:#090d16; padding:2px 5px; border-radius:4px; color:#34d399; font-size:11.5px;">$1</code>')
+            .replace(/\n/g, '<br>');
+    }
+
+    function sendQuickPrompt(promptText) {
+        document.getElementById("chatInput").value = promptText;
+        submitChat();
+    }
+
+    function handleChatKeyDown(e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submitChat();
+        }
+    }
+
+    async function submitChat() {
+        const input = document.getElementById("chatInput");
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = "";
+
+        const custName = currentChatCustomer;
+        const targetSid = document.getElementById("chatServerSelect").value;
+
+        if (!customerChatHistories[custName]) customerChatHistories[custName] = [];
+        customerChatHistories[custName].push({ sender: "user", text: text });
+        renderChatMessages();
+
+        const box = document.getElementById("chatMessages");
+        const loadingDiv = document.createElement("div");
+        loadingDiv.className = "chat-msg assistant";
+        loadingDiv.id = "chatLoadingBubble";
+        loadingDiv.innerHTML = `<div class="bot-badge"><span>🤖</span> OMNIAGENT AI</div><div style="color:var(--text-muted); font-size:12px;">⏳ [${custName}] sunucuları inceleniyor ve talimatınız yürütülüyor...</div>`;
+        box.appendChild(loadingDiv);
+        box.scrollTop = box.scrollHeight;
+
+        try {
+            const res = await apiCall("/api/assistant/chat", "POST", {
+                customer_name: custName,
+                server_id: targetSid,
+                prompt: text
+            });
+
+            const loadingEl = document.getElementById("chatLoadingBubble");
+            if (loadingEl) loadingEl.remove();
+
+            customerChatHistories[custName].push({
+                sender: "assistant",
+                text: res.response || "İşlem tamamlandı.",
+                action: res.action || "",
+                output: res.task_output || ""
+            });
+            renderChatMessages();
+            refreshAll();
+        } catch (err) {
+            const loadingEl = document.getElementById("chatLoadingBubble");
+            if (loadingEl) loadingEl.remove();
+
+            customerChatHistories[custName].push({
+                sender: "assistant",
+                text: `❌ Bir hata oluştu: ${err.message}`,
+                action: "",
+                output: ""
+            });
+            renderChatMessages();
+        }
     }
 
     async function refreshAll() {
