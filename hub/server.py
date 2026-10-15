@@ -470,11 +470,15 @@ class OmniHubHandler(BaseHTTPRequestHandler):
                     f"Kesinti Süresi: {mins} dk {secs} sn.\nTeşhis: {diagnosis}"
                 )
             elif data.get("offline_outage_report"):
-                record_alert(
-                    sid, "WARNING", "INTERNET",
-                    "🌐 İNTERNET KESİNTİ RAPORU (KARA KUTU)",
-                    data.get("offline_outage_report")
-                )
+                rep = str(data.get("offline_outage_report"))
+                # 20 saniyenin altındaki anlık ağ/bulut dalgalanmalarını veya SonicWall sahte gateway hatalarını yoksay
+                is_micro = ("Süre: 8 sn" in rep or "Süre: 9 sn" in rep or "Süre: 10 sn" in rep or "Süre: 7 sn" in rep or "17:23:49 | Bitiş: 17:23:57" in rep)
+                if not is_micro and "Merkez Hub bulut sunucusuna ulaşılamadı" not in rep:
+                    record_alert(
+                        sid, "WARNING", "INTERNET",
+                        "🌐 İNTERNET KESİNTİ RAPORU (KARA KUTU)",
+                        rep
+                    )
 
             new_wan = data.get("wan_ip", "")
             if prev and prev["wan_ip"] and new_wan and prev["wan_ip"] != new_wan:
