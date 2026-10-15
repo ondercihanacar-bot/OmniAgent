@@ -11,15 +11,15 @@
   "notifications": {
     "desktop_popup_enabled": true,
     "telegram": {
-      "enabled": false,
-      "bot_token": "BURAYA_TELEGRAM_BOT_TOKEN_YAZIN",
-      "chat_id": "BURAYA_TELEGRAM_CHAT_ID_YAZIN"
+      "enabled": true,
+      "bot_token": "8591156135:AAHNSvghDdsipbA_nGWQvaXTNm8E5dP_8xA",
+      "chat_id": "8874934039"
     },
     "whatsapp": {
       "enabled": false,
-      "provider": "webhook",
+      "provider": "callmebot",
       "api_url": "https://api.callmebot.com/whatsapp.php",
-      "phone": "+905XXXXXXXXX",
+      "phone": "+905546259513",
       "api_key": "BURAYA_API_KEY"
     },
     "email": {
@@ -28,7 +28,7 @@
       "smtp_port": 587,
       "sender_email": "ornek@sirket.com",
       "sender_password": "UYGULAMA_SIFRESI",
-      "receiver_email": "onder@sirket.com"
+      "receiver_email": "onder.cihan.acar@gmail.com"
     }
   }
 }

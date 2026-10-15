@@ -12,3 +12,7 @@ services:
         value: "2213"
       - key: AUTH_TOKEN
         value: "OmniAgentSecretToken2026"
+      - key: TELEGRAM_BOT_TOKEN
+        value: "8591156135:AAHNSvghDdsipbA_nGWQvaXTNm8E5dP_8xA"
+      - key: TELEGRAM_CHAT_ID
+        value: "8874934039"

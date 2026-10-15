@@ -77,8 +77,8 @@ def _log_notification(level, server_id, title, message):
 
 
 def _send_telegram(cfg_tg, text):
-    bot_token = cfg_tg.get("bot_token", "")
-    chat_id = cfg_tg.get("chat_id", "")
+    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN") or cfg_tg.get("bot_token", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or cfg_tg.get("chat_id", "")
     if not bot_token or not chat_id or "BURAYA_" in bot_token:
         return False
 
