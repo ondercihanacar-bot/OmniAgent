@@ -2,7 +2,7 @@
   "hub_port": 8088,
   "admin_password": "2213",
   "auth_token": "OmniAgentSecretToken2026",
-  "offline_threshold_sec": 35,
+  "offline_threshold_sec": 90,
   "work_hours": {
     "start": "08:30",
     "end": "18:30",

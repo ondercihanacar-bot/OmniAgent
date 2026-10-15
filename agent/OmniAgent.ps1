@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     OmniAgent - 7/24 Tam Otonom Windows Server Koruma, İzleme ve Onarım Ajanı
 .DESCRIPTION
@@ -36,6 +36,8 @@ $script:LastDiskCleanTime = (Get-Date).AddHours(-12)
 $script:LastWanIpCheck = (Get-Date).AddMinutes(-10)
 $script:CachedWanIp = ""
 $script:BlockedIps = @{}
+$script:ConsecutiveWanFailures = 0
+$script:ConsecutiveHubFailures = 0
 
 # İntihar / Tehlikeli Komut Kara Listesi
 $Blacklist = @(
@@ -105,25 +107,15 @@ function Get-UpsStatus {
 
 function Test-NetworkAndInternet {
     <# 3 Katmanlı Ağ Kalitesi ve İnternet Kontrolü (Gateway, WAN Ping/PacketLoss, DNS, WAN IP) #>
-    $gwPing = 0
-    $gwOk = $true
-    if ($GatewayIp) {
-        try {
-            $p = Test-Connection -ComputerName $GatewayIp -Count 1 -ErrorAction SilentlyContinue
-            if ($p) {
-                $gwPing = [int]$p.ResponseTime
-            } else {
-                $gwOk = $false
-            }
-        } catch { $gwOk = $false }
-    }
-
-    # WAN Ping & Paket Kaybı (8.8.8.8 üzerinden 3 hızlı paket)
+    # 1. WAN Ping & Paket Kaybı (8.8.8.8 veya 1.1.1.1 üzerinden)
     $wanPing = 0
     $lossPct = 100
     $wanOk = $false
     try {
         $pings = Test-Connection -ComputerName "8.8.8.8" -Count 2 -ErrorAction SilentlyContinue
+        if (-not $pings) {
+            $pings = Test-Connection -ComputerName "1.1.1.1" -Count 2 -ErrorAction SilentlyContinue
+        }
         if ($pings) {
             $wanOk = $true
             $received = @($pings).Count
@@ -131,6 +123,28 @@ function Test-NetworkAndInternet {
             $wanPing = [Math]::Round(($pings | Measure-Object -Property ResponseTime -Average).Average, 0)
         }
     } catch {}
+
+    # 2. Gateway Kontrolü (Eğer WAN açıksa Gateway üzerinden geçtiği için kesinlikle aktiftir)
+    $gwPing = 0
+    $gwOk = $false
+    if ($wanOk) {
+        $gwOk = $true
+        if ($GatewayIp) {
+            try {
+                $p = Test-Connection -ComputerName $GatewayIp -Count 1 -ErrorAction SilentlyContinue
+                if ($p) { $gwPing = [int]$p.ResponseTime }
+            } catch {}
+        }
+    } elseif ($GatewayIp) {
+        # WAN kapalıysa ağ geçidini test et (Switch/Firewall mu kapalı, yoksa Telekom mu?)
+        try {
+            $p = Test-Connection -ComputerName $GatewayIp -Count 2 -ErrorAction SilentlyContinue
+            if ($p) {
+                $gwPing = [int]($p | Measure-Object -Property ResponseTime -Average).Average
+                $gwOk = $true
+            }
+        } catch { $gwOk = $false }
+    }
 
     # Her 5 dakikada bir Dış (WAN) IP kontrolü
     if ($wanOk -and ((Get-Date) - $script:LastWanIpCheck).TotalMinutes -ge 5) {
@@ -161,7 +175,7 @@ function Record-OfflineOutage {
         } elseif (-not $NetInfo.wan_ok) {
             "Yerel Ağ Geçidi ($GatewayIp) aktif, ancak ISS (Türk Telekom / WAN) internet hattı koptu"
         } else {
-            "İnternet var ancak Merkez Hub sunucusuna ulaşılamadı"
+            "İnternet var ancak Merkez Hub bulut sunucusuna ulaşılamadı"
         }
 
         $outageData = @{
@@ -170,7 +184,7 @@ function Record-OfflineOutage {
             diagnosis = $reason
         }
         $outageData | ConvertTo-Json | Set-Content -Path $OutageLogFile -Encoding UTF8
-        Write-Host "[!] KARA KUTU: Kesinti baslangici kaydedildi -> $reason" -ForegroundColor Yellow
+        Write-Host "[!] KARA KUTU: Gerçek kesinti başlangıcı kaydedildi -> $reason" -ForegroundColor Yellow
     }
 }
 
@@ -179,8 +193,18 @@ function Consume-OfflineOutageReport {
         try {
             $data = Get-Content $OutageLogFile -Raw -Encoding UTF8 | ConvertFrom-Json
             Remove-Item $OutageLogFile -Force -ErrorAction SilentlyContinue
-            $endTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-            return "Kesinti Başlangıcı: $($data.start_time) | Bitiş: $endTime | Kök Neden: $($data.diagnosis) (Elektrik kesilmedi, sunucu kesintisiz çalıştı)."
+            $nowEpoch = [int][double]::Parse((Get-Date -UFormat %s))
+            $startEpoch = if ($data.start_epoch) { [int]$data.start_epoch } else { $nowEpoch - 60 }
+            $durationSec = [Math]::Max(1, ($nowEpoch - $startEpoch))
+            
+            # Anlık 25 saniye altındaki geçici paket dalgalanmalarını kesinti olarak raporlayıp alarm üretme
+            if ($durationSec -ge 25) {
+                $endTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                $mins = [Math]::Floor($durationSec / 60)
+                $secs = $durationSec % 60
+                $durStr = if ($mins -gt 0) { "$mins dk $secs sn" } else { "$secs sn" }
+                return "Kesinti Başlangıcı: $($data.start_time) | Bitiş: $endTime | Süre: $durStr | Kök Neden: $($data.diagnosis) (Elektrik kesilmedi, sunucu kesintisiz çalıştı)."
+            }
         } catch {
             Remove-Item $OutageLogFile -Force -ErrorAction SilentlyContinue
         }
@@ -452,7 +476,14 @@ while ($true) {
         # Eğer internet kesintisinden yeni çıkıldıysa Kara Kutu raporunu al
         $outageReport = ""
         if ($net.wan_ok) {
+            $script:ConsecutiveWanFailures = 0
             $outageReport = Consume-OfflineOutageReport
+        } else {
+            $script:ConsecutiveWanFailures++
+            # Sadece art arda en az 3 deneme (yaklaşık 20-30 saniye) boyunca WAN yoksa kara kutu kesinti kaydı aç
+            if ($script:ConsecutiveWanFailures -ge 3) {
+                Record-OfflineOutage -NetInfo $net
+            }
         }
 
         $hbPayload = @{
@@ -485,7 +516,13 @@ while ($true) {
 
         $hbRes = Invoke-HubRequest -Path "/api/agent/heartbeat" -Method "POST" -Body $hbPayload
         if (-not $hbRes) {
-            Record-OfflineOutage -NetInfo $net
+            $script:ConsecutiveHubFailures++
+            # Sadece ve sadece hem Hub hem de WAN gerçekten 4 deneme boyunca yoksa kaydet
+            if ($script:ConsecutiveHubFailures -ge 4 -and (-not $net.wan_ok)) {
+                Record-OfflineOutage -NetInfo $net
+            }
+        } else {
+            $script:ConsecutiveHubFailures = 0
         }
 
         # Bekleyen görevleri çek ve çalıştır

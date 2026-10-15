@@ -134,7 +134,7 @@ def watchdog_loop():
     while True:
         try:
             current_cfg = load_config()
-            threshold = int(current_cfg.get("offline_threshold_sec", 35))
+            threshold = int(current_cfg.get("offline_threshold_sec", 90))
             now = time.time()
 
             conn = get_db()
@@ -318,7 +318,7 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             cur.execute("SELECT * FROM servers ORDER BY server_id ASC")
             rows = cur.fetchall()
             now = time.time()
-            threshold = int(load_config().get("offline_threshold_sec", 35))
+            threshold = int(load_config().get("offline_threshold_sec", 90))
             servers = []
             for r in rows:
                 d = dict(r)
