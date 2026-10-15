@@ -172,6 +172,51 @@
             align-items: center;
         }
 
+        /* Müşteri Grubu Kartı & Bölümü */
+        .customer-group {
+            background: #0d131f;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .customer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #1f2937;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .customer-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .customer-title h2 {
+            font-size: 19px;
+            font-weight: 700;
+            color: #38bdf8;
+            letter-spacing: 0.5px;
+        }
+        .customer-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .cust-tag {
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
         /* Server Cards */
         .servers-grid {
             display: grid;
@@ -337,7 +382,11 @@
 
 <div class="kpi-grid">
     <div class="kpi-card">
-        <div class="kpi-title">Toplam Müşteri Sunucusu</div>
+        <div class="kpi-title">Toplam Müşteri</div>
+        <div class="kpi-val" style="color: var(--accent);" id="kpiCustomers">0</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-title">Toplam Sunucu</div>
         <div class="kpi-val" id="kpiTotal">0</div>
     </div>
     <div class="kpi-card">
@@ -352,10 +401,6 @@
         <div class="kpi-title">Otonom Onarılan (Son 24s)</div>
         <div class="kpi-val" style="color: var(--purple);" id="kpiHealed">0</div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-title">Güvenlik & Mesai Dışı Alarm</div>
-        <div class="kpi-val" style="color: var(--yellow);" id="kpiSec">0</div>
-    </div>
 </div>
 
 <div class="summary-banner">
@@ -368,10 +413,10 @@
 <div class="main-grid">
     <div>
         <div class="section-title">
-            <span>🖥️ Müşteri Sunucuları (Canlı Telemetri & Otonom Kontrol)</span>
+            <span>🏢 Müşteri & Sunucu Filosu (Grup Görünümü)</span>
             <small style="color:var(--text-muted);" id="lastUpdateText"></small>
         </div>
-        <div class="servers-grid" id="serversContainer"></div>
+        <div id="serversContainer"></div>
     </div>
 
     <div>
@@ -530,53 +575,114 @@
             return;
         }
 
-        container.innerHTML = servers.map(s => {
-            const online = s.is_online;
-            const diskUsedPct = s.disk_total_gb > 0 ? Math.round(((s.disk_total_gb - s.disk_free_gb) / s.disk_total_gb) * 100) : 0;
-            const users = (s.active_users || []).length > 0 ? s.active_users.join(", ") : "Oturum Yok";
-            const upsIcon = s.ups_status === "ON_BATTERY" ? `⚡ AKÜDE (%${s.ups_battery_pct})` : `🔌 Şebeke (%${s.ups_battery_pct})`;
+        // Müşteri Adı ve Dış IP Bazlı Akıllı Gruplama
+        const groups = {};
+        for (const s of servers) {
+            const rawCust = (s.customer_name || "DİĞER").trim();
+            // Türkçe karakterleri normalize et (Katsimtaş / KATSIMTAS aynı gruba toplansın)
+            const normCust = rawCust.toUpperCase().replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G').replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C');
+            const groupKey = normCust || s.wan_ip || "DİĞER";
+
+            if (!groups[groupKey]) {
+                groups[groupKey] = {
+                    title: rawCust,
+                    wan_ip: s.wan_ip || "-",
+                    servers: []
+                };
+            }
+            if (s.wan_ip && groups[groupKey].wan_ip === "-") {
+                groups[groupKey].wan_ip = s.wan_ip;
+            }
+            groups[groupKey].servers.push(s);
+        }
+
+        const customerCount = Object.keys(groups).length;
+        const totalServers = servers.length;
+        const onlineServers = servers.filter(s => s.is_online).length;
+        const offlineServers = totalServers - onlineServers;
+
+        const kpiCustEl = document.getElementById("kpiCustomers");
+        if (kpiCustEl) kpiCustEl.innerText = customerCount;
+        const kpiTotEl = document.getElementById("kpiTotal");
+        if (kpiTotEl) kpiTotEl.innerText = totalServers;
+        const kpiOnEl = document.getElementById("kpiOnline");
+        if (kpiOnEl) kpiOnEl.innerText = onlineServers;
+        const kpiOffEl = document.getElementById("kpiOffline");
+        if (kpiOffEl) kpiOffEl.innerText = offlineServers;
+
+        container.innerHTML = Object.values(groups).map(g => {
+            const onlineInGroup = g.servers.filter(s => s.is_online).length;
+            const groupBadge = onlineInGroup === g.servers.length ?
+                `<span class="badge badge-online">🟢 ${onlineInGroup}/${g.servers.length} Aktif</span>` :
+                `<span class="badge badge-offline">🔴 ${g.servers.length - onlineInGroup} Kesinti</span>`;
+
+            const cardsHtml = g.servers.map(s => {
+                const online = s.is_online;
+                const diskUsedPct = s.disk_total_gb > 0 ? Math.round(((s.disk_total_gb - s.disk_free_gb) / s.disk_total_gb) * 100) : 0;
+                const users = (s.active_users || []).length > 0 ? s.active_users.join(", ") : "Oturum Yok";
+                const upsIcon = s.ups_status === "ON_BATTERY" ? `⚡ AKÜDE (%${s.ups_battery_pct})` : `🔌 Şebeke (%${s.ups_battery_pct})`;
+
+                return `
+                <div class="srv-card ${online ? 'online' : 'offline'}">
+                    <div class="srv-header">
+                        <div>
+                            <div class="srv-name">${s.server_id}</div>
+                            <div class="srv-sub">${s.hostname} • İç IP: ${s.ip_address}</div>
+                        </div>
+                        <span class="badge ${online ? 'badge-online' : 'badge-offline'}">
+                            ${online ? 'ONLINE' : 'KESİNTİ (' + s.last_seen_sec_ago + 'sn)'}
+                        </span>
+                    </div>
+
+                    <div class="metrics-bars">
+                        <div class="metric-row">
+                            <div class="metric-label"><span>CPU Kullanımı</span><span>%${s.cpu_percent}</span></div>
+                            <div class="progress"><div class="progress-fill" style="width:${s.cpu_percent}%; background:${getBarColor(s.cpu_percent)}"></div></div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label"><span>RAM Kullanımı (${s.total_ram_gb} GB)</span><span>%${s.ram_percent}</span></div>
+                            <div class="progress"><div class="progress-fill" style="width:${s.ram_percent}%; background:${getBarColor(s.ram_percent)}"></div></div>
+                        </div>
+                        <div class="metric-row">
+                            <div class="metric-label"><span>Disk C: (Boş: ${s.disk_free_gb} / ${s.disk_total_gb} GB)</span><span>%${diskUsedPct}</span></div>
+                            <div class="progress"><div class="progress-fill" style="width:${diskUsedPct}%; background:${getBarColor(diskUsedPct)}"></div></div>
+                        </div>
+                    </div>
+
+                    <div class="info-pills">
+                        <span class="pill">🌐 Ping: ${s.wan_ping_ms}ms | Kayıp: %${s.packet_loss_pct}</span>
+                        <span class="pill">${upsIcon}</span>
+                        <span class="pill">👤 Açık: ${users}</span>
+                        <span class="pill">💾 Yedek: ${s.backup_status || 'OK'}</span>
+                        <span class="pill">⏱️ Uptime: ${s.uptime_hours} sa</span>
+                    </div>
+
+                    <div class="srv-actions">
+                        <button class="btn-primary" onclick="openCmdModal('${s.server_id}')">💻 Komut / Müdahale</button>
+                        <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
+                        <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
+                        <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
+                        <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')">🗑️ Sil</button>
+                    </div>
+                </div>
+                `;
+            }).join("");
 
             return `
-            <div class="srv-card ${online ? 'online' : 'offline'}">
-                <div class="srv-header">
-                    <div>
-                        <div class="srv-name">${s.server_id} <small style="font-weight:400; color:#94a3b8;">(${s.customer_name || ''})</small></div>
-                        <div class="srv-sub">${s.hostname} • İç IP: ${s.ip_address} • WAN: ${s.wan_ip || '-'}</div>
+            <div class="customer-group">
+                <div class="customer-header">
+                    <div class="customer-title">
+                        <span style="font-size:24px;">🏢</span>
+                        <h2>${g.title}</h2>
                     </div>
-                    <span class="badge ${online ? 'badge-online' : 'badge-offline'}">
-                        ${online ? 'ONLINE' : 'KESİNTİ (' + s.last_seen_sec_ago + 'sn)'}
-                    </span>
-                </div>
-
-                <div class="metrics-bars">
-                    <div class="metric-row">
-                        <div class="metric-label"><span>CPU Kullanımı</span><span>%${s.cpu_percent}</span></div>
-                        <div class="progress"><div class="progress-fill" style="width:${s.cpu_percent}%; background:${getBarColor(s.cpu_percent)}"></div></div>
-                    </div>
-                    <div class="metric-row">
-                        <div class="metric-label"><span>RAM Kullanımı (${s.total_ram_gb} GB)</span><span>%${s.ram_percent}</span></div>
-                        <div class="progress"><div class="progress-fill" style="width:${s.ram_percent}%; background:${getBarColor(s.ram_percent)}"></div></div>
-                    </div>
-                    <div class="metric-row">
-                        <div class="metric-label"><span>Disk C: (Boş: ${s.disk_free_gb} / ${s.disk_total_gb} GB)</span><span>%${diskUsedPct}</span></div>
-                        <div class="progress"><div class="progress-fill" style="width:${diskUsedPct}%; background:${getBarColor(diskUsedPct)}"></div></div>
+                    <div class="customer-tags">
+                        <span class="cust-tag">🌐 Dış IP (WAN): ${g.wan_ip}</span>
+                        <span class="cust-tag">🖥️ ${g.servers.length} Sunucu</span>
+                        ${groupBadge}
                     </div>
                 </div>
-
-                <div class="info-pills">
-                    <span class="pill">🌐 Ping: ${s.wan_ping_ms}ms | Kayıp: %${s.packet_loss_pct}</span>
-                    <span class="pill">${upsIcon}</span>
-                    <span class="pill">👤 Açık: ${users}</span>
-                    <span class="pill">💾 Yedek: ${s.backup_status || 'OK'}</span>
-                    <span class="pill">⏱️ Uptime: ${s.uptime_hours} sa</span>
-                </div>
-
-                <div class="srv-actions">
-                    <button class="btn-primary" onclick="openCmdModal('${s.server_id}')">💻 Komut / Müdahale</button>
-                    <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
-                    <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
-                    <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
-                    <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')">🗑️ Sil</button>
+                <div class="servers-grid">
+                    ${cardsHtml}
                 </div>
             </div>
             `;
