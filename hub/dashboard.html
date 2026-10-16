@@ -1091,11 +1091,7 @@
                     </div>
                     <div class="customer-tags">
                         <span class="cust-tag">🌐 Dış IP (WAN): ${g.wan_ip}</span>
-                        <span class="cust-tag">🖥️ ${g.servers.length} Sunucu</span>
                         ${groupBadge}
-                        <button class="btn-chat-open" style="background:linear-gradient(135deg, #312e81, #4338ca); border-color:#6366f1;" onclick="openPolicyModal('CUSTOMER', '${encodeURIComponent(g.title)}', '${encodeURIComponent(g.title)}')">
-                            ⚙️ Müşteri Politikaları
-                        </button>
                         <button class="btn-chat-open" onclick="openCustomerChat('${encodeURIComponent(g.title)}', '${g.wan_ip}')">
                             💬 ${g.title} ile Konuş & İşlem Yap
                         </button>
