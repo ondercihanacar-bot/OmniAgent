@@ -574,20 +574,6 @@
         </div>
     </div>
     <div class="header-actions">
-        <div style="display:flex; align-items:center; gap:6px; background:#1e293b; border:1px solid #334155; padding:5px 10px; border-radius:8px; font-size:12px;">
-            <span>👻 Hayalet Oturum:</span>
-            <select id="ghostSessionSelect" onchange="setGhostSessionTimeout(this.value)" style="background:#090d16; color:#38bdf8; border:1px solid #334155; border-radius:6px; padding:3px 6px; font-size:11.5px; font-weight:bold; outline:none; cursor:pointer;">
-                <option value="10">10 Dakika</option>
-                <option value="20">20 Dakika</option>
-                <option value="30">30 Dakika</option>
-                <option value="60">1 Saat</option>
-                <option value="120" selected>2 Saat (Önerilen)</option>
-                <option value="180">3 Saat</option>
-                <option value="240">4 Saat</option>
-                <option value="300">5 Saat</option>
-                <option value="0">Devre Dışı</option>
-            </select>
-        </div>
         <button style="background:#3730a3; border-color:#6366f1;" onclick="testMorningBriefing()" title="08:15 Sabah Bültenini Hemen Test Et">☕ Sabah Bülteni Test</button>
         <button style="background:#065f46; border-color:#10b981;" onclick="openWaModal()">📲 WhatsApp Bağla</button>
         <button onclick="sendTestAlert()">🔔 Test Bildirimi</button>
@@ -1030,21 +1016,11 @@
                         </div>
                     </div>
 
-                    <div class="info-pills">
-                        <span class="pill">🌐 Ping: ${s.wan_ping_ms}ms | Kayıp: %${s.packet_loss_pct}</span>
-                        <span class="pill">${upsIcon}</span>
-                        <span class="pill">👤 Açık: ${users}</span>
-                        <span class="pill">💾 Yedek: ${s.backup_status || 'OK'}</span>
-                        <span class="pill">⏱️ Uptime: ${s.uptime_hours} sa</span>
-                    </div>
-
-                    <div class="srv-actions">
-                        <button class="btn-primary" onclick="openCmdModal('${s.server_id}')">💻 Komut / Müdahale</button>
-                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Politikalar</button>
+                    <div class="srv-actions" style="margin-top:14px;">
+                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Otonom Politika & Ayarlar</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
-                        <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
-                        <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')">🗑️ Sil</button>
+                        <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')" title="Sunucu Kaydını Sil">🗑️ Sil</button>
                     </div>
                 </div>
                 `;
@@ -1477,22 +1453,8 @@
     }
 
     /* ============================================================== */
-    /* 👻 HAYALET OTURUM SÜRESİ & ☕ SABAH BÜLTENİ TESTİ */
+    /* ☕ SABAH BÜLTENİ TESTİ */
     /* ============================================================== */
-    async function setGhostSessionTimeout(val) {
-        const mins = parseInt(val);
-        try {
-            const cfg = await apiCall("/api/config");
-            if (!cfg.ghost_session_killer) cfg.ghost_session_killer = {};
-            cfg.ghost_session_killer.enabled = (mins > 0);
-            cfg.ghost_session_killer.max_idle_minutes = mins;
-            await apiCall("/api/config/update", "POST", cfg);
-            alert(`✅ Hayalet Oturum Zaman Aşımı ${mins > 0 ? mins + ' dakika' : 'KAPALI'} olarak güncellendi. Ajanlar otonom senkronize edildi.`);
-        } catch (e) {
-            alert("Ayar kaydedilemedi: " + e.message);
-        }
-    }
-
     async function testMorningBriefing() {
         try {
             const res = await apiCall("/api/notifications/briefing/test", "POST");
@@ -1585,18 +1547,6 @@
         }
     }
 
-    async function loadConfigSettings() {
-        try {
-            const cfg = await apiCall("/api/config");
-            if (cfg.ghost_session_killer && cfg.ghost_session_killer.max_idle_minutes !== undefined) {
-                const el = document.getElementById("ghostSessionSelect");
-                if (el) {
-                    el.value = cfg.ghost_session_killer.enabled ? String(cfg.ghost_session_killer.max_idle_minutes) : "0";
-                }
-            }
-        } catch(e) {}
-    }
-
     async function refreshAll() {
         if (!AUTH_TOKEN) return;
         try {
@@ -1614,7 +1564,6 @@
     if (AUTH_TOKEN) {
         document.getElementById("loginOverlay").style.display = "none";
         refreshAll();
-        loadConfigSettings();
     }
     setInterval(refreshAll, 4000);
 </script>
