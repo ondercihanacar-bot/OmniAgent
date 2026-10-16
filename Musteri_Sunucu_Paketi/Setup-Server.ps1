@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     OmniAgent Müşteri Sunucusu Tek Tık Kurulum Sihirbazı
 #>
@@ -55,25 +55,28 @@ $cfgObj = @{
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText("$TargetDir\config.json", ($cfgObj | ConvertTo-Json -Depth 4), $utf8NoBom)
 
-# Hub Güvenlik Duvarı Port İzni
+# Hub Güvenlik Duvarı Port İzni ve Antivirüs İstisnası
 New-NetFirewallRule -DisplayName "OmniAgent Outbound" -Direction Outbound -Action Allow -ErrorAction SilentlyContinue | Out-Null
+Add-MpPreference -ExclusionPath $TargetDir -ErrorAction SilentlyContinue | Out-Null
 
-# 7/24 Sistem Görevi (NT AUTHORITY\SYSTEM) Kaydı
+# 7/24 Sistem Görevi (NT AUTHORITY\SYSTEM) Kaydı + 5 Dakikalık Watchdog Tetikleyici
 $TaskName = "OmniAgent_7x24_Service"
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
 $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$TargetDir\OmniAgent.ps1`""
 $TriggerStartup = New-ScheduledTaskTrigger -AtStartup
+$TriggerWatchdog = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 5)
 $Settings = New-ScheduledTaskSettingsSet `
     -AllowStartIfOnBatteries `
     -DontStopIfGoingOnBatteries `
     -StartWhenAvailable `
+    -MultipleInstances IgnoreNew `
     -RestartCount 999 `
     -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit (New-TimeSpan -Days 3650)
 
 $Principal = New-ScheduledTaskPrincipal -UserId "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $TriggerStartup -Settings $Settings -Principal $Principal -Description "OmniAgent 7/24 Autonomous Server Guardian" | Out-Null
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger @($TriggerStartup, $TriggerWatchdog) -Settings $Settings -Principal $Principal -Description "OmniAgent 7/24 Autonomous Server Guardian" | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 
 Write-Host ""

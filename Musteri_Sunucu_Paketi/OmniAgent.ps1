@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     OmniAgent - 7/24 Tam Otonom Windows Server Koruma, İzleme ve Onarım Ajanı
 .DESCRIPTION
@@ -9,7 +9,15 @@
     - Uzaktan PowerShell & Güvenlik Duvarı İşlem Yürütücü
 #>
 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+} catch {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+# Kaspersky / Antivirüs HTTPS (SSL MITM) Taraması Takılmasını Önle
+try {
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+} catch {}
 $ErrorActionPreference = "Continue"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -36,6 +44,15 @@ $script:LastDiskCleanTime = (Get-Date).AddHours(-12)
 $script:LastWanIpCheck = (Get-Date).AddMinutes(-10)
 $script:CachedWanIp = ""
 $script:BlockedIps = @{}
+$script:ConsecutiveWanFailures = 0
+$script:ConsecutiveHubFailures = 0
+$script:GhostMaxIdle = 120
+$script:GhostKillerEnabled = $true
+$script:GhostExcludeUsers = @("Administrator", "admin.senkron")
+$script:AutoDiskCleanEnabled = $true
+$script:AuditTrailEnabled = $true
+$script:BruteForceEnabled = $true
+$script:LastAuditCheck = (Get-Date).AddMinutes(-5)
 
 # İntihar / Tehlikeli Komut Kara Listesi
 $Blacklist = @(
@@ -105,25 +122,15 @@ function Get-UpsStatus {
 
 function Test-NetworkAndInternet {
     <# 3 Katmanlı Ağ Kalitesi ve İnternet Kontrolü (Gateway, WAN Ping/PacketLoss, DNS, WAN IP) #>
-    $gwPing = 0
-    $gwOk = $true
-    if ($GatewayIp) {
-        try {
-            $p = Test-Connection -ComputerName $GatewayIp -Count 1 -ErrorAction SilentlyContinue
-            if ($p) {
-                $gwPing = [int]$p.ResponseTime
-            } else {
-                $gwOk = $false
-            }
-        } catch { $gwOk = $false }
-    }
-
-    # WAN Ping & Paket Kaybı (8.8.8.8 üzerinden 3 hızlı paket)
+    # 1. WAN Ping & Paket Kaybı (8.8.8.8 veya 1.1.1.1 üzerinden)
     $wanPing = 0
     $lossPct = 100
     $wanOk = $false
     try {
         $pings = Test-Connection -ComputerName "8.8.8.8" -Count 2 -ErrorAction SilentlyContinue
+        if (-not $pings) {
+            $pings = Test-Connection -ComputerName "1.1.1.1" -Count 2 -ErrorAction SilentlyContinue
+        }
         if ($pings) {
             $wanOk = $true
             $received = @($pings).Count
@@ -131,6 +138,28 @@ function Test-NetworkAndInternet {
             $wanPing = [Math]::Round(($pings | Measure-Object -Property ResponseTime -Average).Average, 0)
         }
     } catch {}
+
+    # 2. Gateway Kontrolü (Eğer WAN açıksa Gateway üzerinden geçtiği için kesinlikle aktiftir)
+    $gwPing = 0
+    $gwOk = $false
+    if ($wanOk) {
+        $gwOk = $true
+        if ($GatewayIp) {
+            try {
+                $p = Test-Connection -ComputerName $GatewayIp -Count 1 -ErrorAction SilentlyContinue
+                if ($p) { $gwPing = [int]$p.ResponseTime }
+            } catch {}
+        }
+    } elseif ($GatewayIp) {
+        # WAN kapalıysa ağ geçidini test et (Switch/Firewall mu kapalı, yoksa Telekom mu?)
+        try {
+            $p = Test-Connection -ComputerName $GatewayIp -Count 2 -ErrorAction SilentlyContinue
+            if ($p) {
+                $gwPing = [int]($p | Measure-Object -Property ResponseTime -Average).Average
+                $gwOk = $true
+            }
+        } catch { $gwOk = $false }
+    }
 
     # Her 5 dakikada bir Dış (WAN) IP kontrolü
     if ($wanOk -and ((Get-Date) - $script:LastWanIpCheck).TotalMinutes -ge 5) {
@@ -161,7 +190,7 @@ function Record-OfflineOutage {
         } elseif (-not $NetInfo.wan_ok) {
             "Yerel Ağ Geçidi ($GatewayIp) aktif, ancak ISS (Türk Telekom / WAN) internet hattı koptu"
         } else {
-            "İnternet var ancak Merkez Hub sunucusuna ulaşılamadı"
+            "İnternet var ancak Merkez Hub bulut sunucusuna ulaşılamadı"
         }
 
         $outageData = @{
@@ -170,7 +199,7 @@ function Record-OfflineOutage {
             diagnosis = $reason
         }
         $outageData | ConvertTo-Json | Set-Content -Path $OutageLogFile -Encoding UTF8
-        Write-Host "[!] KARA KUTU: Kesinti baslangici kaydedildi -> $reason" -ForegroundColor Yellow
+        Write-Host "[!] KARA KUTU: Gerçek kesinti başlangıcı kaydedildi -> $reason" -ForegroundColor Yellow
     }
 }
 
@@ -179,8 +208,18 @@ function Consume-OfflineOutageReport {
         try {
             $data = Get-Content $OutageLogFile -Raw -Encoding UTF8 | ConvertFrom-Json
             Remove-Item $OutageLogFile -Force -ErrorAction SilentlyContinue
-            $endTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-            return "Kesinti Başlangıcı: $($data.start_time) | Bitiş: $endTime | Kök Neden: $($data.diagnosis) (Elektrik kesilmedi, sunucu kesintisiz çalıştı)."
+            $nowEpoch = [int][double]::Parse((Get-Date -UFormat %s))
+            $startEpoch = if ($data.start_epoch) { [int]$data.start_epoch } else { $nowEpoch - 60 }
+            $durationSec = [Math]::Max(1, ($nowEpoch - $startEpoch))
+            
+            # Anlık 25 saniye altındaki geçici paket dalgalanmalarını kesinti olarak raporlayıp alarm üretme
+            if ($durationSec -ge 25) {
+                $endTime = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+                $mins = [Math]::Floor($durationSec / 60)
+                $secs = $durationSec % 60
+                $durStr = if ($mins -gt 0) { "$mins dk $secs sn" } else { "$secs sn" }
+                return "Kesinti Başlangıcı: $($data.start_time) | Bitiş: $endTime | Süre: $durStr | Kök Neden: $($data.diagnosis) (Elektrik kesilmedi, sunucu kesintisiz çalıştı)."
+            }
         } catch {
             Remove-Item $OutageLogFile -Force -ErrorAction SilentlyContinue
         }
@@ -222,6 +261,70 @@ function Get-ActiveSessionsAndNewLogins {
     }
 }
 
+function Invoke-DeepDiskCleanup {
+    <# Kapsamlı ve Güvenli Derin Disk Temizliği:
+       - Windows Temp & Kullanıcı Temp (Tüm Profiller)
+       - Windows Update İndirme Önbelleği (SoftwareDistribution\Download)
+       - Geri Dönüşüm Kutusu (Tüm Sürücüler)
+       - Windows Hata Raporları & Crash Dumps
+       - 30 Günden Eski IIS Web Logları
+    #>
+    $beforeFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+
+    # 1. Windows Temp
+    try { Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+
+    # 2. Tüm Kullanıcı Profillerinin Temp Klasörleri (Terminal Server & Yerel)
+    try {
+        Get-ChildItem -Path "C:\Users" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $uTemp = Join-Path $_.FullName "AppData\Local\Temp"
+            if (Test-Path $uTemp) {
+                Remove-Item -Path "$uTemp\*" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {}
+
+    # 3. Windows Update Eski İndirme Önbelleği
+    try {
+        $swDownload = "C:\Windows\SoftwareDistribution\Download"
+        if (Test-Path $swDownload) {
+            Remove-Item -Path "$swDownload\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    # 4. Geri Dönüşüm Kutuları
+    try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } catch {}
+
+    # 5. Windows Hata Raporları & Minidump
+    try {
+        Remove-Item -Path "C:\ProgramData\Microsoft\Windows\WER\ReportArchive\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "C:\ProgramData\Microsoft\Windows\WER\ReportQueue\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "C:\Windows\Minidump\*" -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    # 6. Eski IIS Web Logları (30 günden eski)
+    try {
+        $iisLogPath = "C:\inetpub\logs\LogFiles"
+        if (Test-Path $iisLogPath) {
+            Get-ChildItem -Path $iisLogPath -Recurse -File -Filter "*.log" -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    $afterFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+    $freedMb = [Math]::Round((($afterFree - $beforeFree) / 1MB), 1)
+    if ($freedMb -lt 0) { $freedMb = 0 }
+    $freedGb = [Math]::Round(($freedMb / 1024), 2)
+    $gainStr = if ($freedGb -ge 1) { "$freedGb GB ($freedMb MB)" } else { "$freedMb MB" }
+
+    return @{
+        freed_mb = $freedMb
+        gain_str = $gainStr
+        total_free_gb = [Math]::Round(($afterFree / 1GB), 1)
+    }
+}
+
 function Invoke-SelfHealing {
     param([double]$DiskFreeGb, [double]$DiskTotalGb)
     $healedEvents = @()
@@ -249,21 +352,14 @@ function Invoke-SelfHealing {
         }
     }
 
-    # 2. Disk Doluluğu Otonom Temizliği
-    if ($DiskTotalGb -gt 0) {
+    # 2. Disk Doluluğu Otonom Derin Temizliği
+    if ($script:AutoDiskCleanEnabled -and $DiskTotalGb -gt 0) {
         $usedPct = (($DiskTotalGb - $DiskFreeGb) / $DiskTotalGb) * 100
-        $threshold = if ($Config.AutoCleanDiskThresholdPct) { [double]$Config.AutoCleanDiskThresholdPct } else { 90 }
+        $threshold = if ($Config.AutoCleanDiskThresholdPct) { [double]$Config.AutoCleanDiskThresholdPct } else { 88 }
         if ($usedPct -ge $threshold -and ((Get-Date) - $script:LastDiskCleanTime).TotalHours -ge 6) {
-            try {
-                $beforeFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
-                Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-                $afterFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
-                $freedMb = [Math]::Round((($afterFree - $beforeFree) / 1MB), 1)
-                if ($freedMb -lt 0) { $freedMb = 0 }
-                $script:LastDiskCleanTime = Get-Date
-                $healedEvents += "C: Diski %$([Math]::Round($usedPct,1)) doluluğa ulaştığı için otonom Temp temizliği yapıldı ($freedMb MB alan açıldı)."
-            } catch {}
+            $clRes = Invoke-DeepDiskCleanup
+            $script:LastDiskCleanTime = Get-Date
+            $healedEvents += "C: Diski %$([Math]::Round($usedPct,1)) doluluğa ulaştığı için otonom derin disk temizliği yapıldı ($($clRes.gain_str) alan açıldı, Kalan Boş: $($clRes.total_free_gb) GB)."
         }
     }
 
@@ -325,6 +421,152 @@ function Get-BackupStatus {
     } catch {
         return "KONTROL HATASI"
     }
+}
+
+function Invoke-GhostSessionKiller {
+    param(
+        [int]$MaxIdleMinutes = 120,
+        [string[]]$ExcludeUsers = @("Administrator", "admin.senkron")
+    )
+    if ($MaxIdleMinutes -le 0) { return @() }
+
+    $killedEvents = @()
+    try {
+        $quserLines = quser 2>$null | Select-Object -Skip 1
+        foreach ($line in $quserLines) {
+            $clean = $line.Trim() -replace '^\>', ''
+            if ($clean -match '^(\S+)\s+(?:(\S+)\s+)?(\d+)\s+([A-Za-z]+)\s+([^\s]+)\s+(.+)$') {
+                $uName = $Matches[1]
+                $sessId = [int]$Matches[3]
+                $state = $Matches[4]
+                $idleStr = $Matches[5]
+
+                if ($state -like "Disc*" -or $state -like "Ayr*") {
+                    $totalMins = 0
+                    if ($idleStr -match '^(\d+)\+(\d+):(\d+)$') {
+                        $totalMins = ([int]$Matches[1] * 1440) + ([int]$Matches[2] * 60) + [int]$Matches[3]
+                    } elseif ($idleStr -match '^(\d+):(\d+)$') {
+                        $totalMins = ([int]$Matches[1] * 60) + [int]$Matches[2]
+                    } elseif ($idleStr -match '^\d+$') {
+                        $totalMins = [int]$idleStr
+                    }
+
+                    if ($totalMins -ge $MaxIdleMinutes -and ($ExcludeUsers -notcontains $uName)) {
+                        Write-Host "[!] HAYALET OTURUM OTONOM SONLANDIRILIYOR: $uName (ID: $sessId, $totalMins dk bosta)" -ForegroundColor Yellow
+                        logoff $sessId 2>$null
+                        $h = [Math]::Floor($totalMins / 60)
+                        $m = $totalMins % 60
+                        $durText = if ($h -gt 0) { "$h sa $m dk" } else { "$m dk" }
+                        $killedEvents += "👻 Hayalet Oturum Otonom Sonlandırıldı: '$uName' (ID: $sessId) $durText boyunca askıdaydı, SQL ve sistem kilitleri temizlendi."
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    return $killedEvents
+}
+
+function Invoke-AuditTrailGuard {
+    <# Yönetici Hareket Takibi (Audit Trail):
+       - Event 4720: Yeni kullanıcı hesabı açıldı
+       - Event 4726: Kullanıcı silindi
+       - Event 4728/4732: Administrators grubuna üye eklendi
+       - Event 4950: Windows Güvenlik Duvarı kuralı değiştirildi
+       - Event 7036: Kritik servis durduruldu
+    #>
+    $auditEvents = @()
+    $now = Get-Date
+    if (-not $script:LastAuditCheck) {
+        $script:LastAuditCheck = $now.AddMinutes(-5)
+    }
+
+    try {
+        # 1. Güvenlik Günlüğü
+        $secEvts = Get-WinEvent -FilterHashtable @{
+            LogName = 'Security'
+            Id = 4720, 4726, 4728, 4732, 4950
+            StartTime = $script:LastAuditCheck
+        } -MaxEvents 15 -ErrorAction SilentlyContinue
+
+        if ($secEvts) {
+            foreach ($evt in $secEvts) {
+                $timeStr = $evt.TimeCreated.ToString("HH:mm:ss")
+                if ($evt.Id -eq 4720) {
+                    $auditEvents += "[$timeStr] 👤 YENİ KULLANICI OLUŞTURULDU: $($evt.Message.Split([Environment]::NewLine)[0])"
+                } elseif ($evt.Id -eq 4726) {
+                    $auditEvents += "[$timeStr] 🗑️ KULLANICI HESABI SİLİNDİ: $($evt.Message.Split([Environment]::NewLine)[0])"
+                } elseif ($evt.Id -in 4728, 4732) {
+                    $auditEvents += "[$timeStr] 👑 YÖNETİCİ (ADMIN) GRUBUNA YENİ ÜYE EKLENDİ!"
+                } elseif ($evt.Id -eq 4950) {
+                    $auditEvents += "[$timeStr] 🛡️ GÜVENLİK DUVARI AYARI DEĞİŞTİRİLDİ!"
+                }
+            }
+        }
+
+        # 2. Sistem Günlüğü (Kritik Servis Durdurulmaları)
+        $sysEvts = Get-WinEvent -FilterHashtable @{
+            LogName = 'System'
+            Id = 7036
+            StartTime = $script:LastAuditCheck
+        } -MaxEvents 20 -ErrorAction SilentlyContinue
+
+        if ($sysEvts) {
+            foreach ($evt in $sysEvts) {
+                $msg = $evt.Message
+                if ($msg -like "*durduruldu*" -or $msg -like "*stopped*") {
+                    if ($msg -like "*SQL*" -or $msg -like "*Spooler*" -or $msg -like "*Remote Desktop*" -or $msg -like "*Firewall*") {
+                        $timeStr = $evt.TimeCreated.ToString("HH:mm:ss")
+                        $cleanMsg = $msg.Split([Environment]::NewLine)[0]
+                        $auditEvents += "[$timeStr] ⚠️ KRİTİK SERVİS DURDURULDU: $cleanMsg"
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    $script:LastAuditCheck = $now
+    return $auditEvents
+}
+
+function Find-LargeHogFiles {
+    param(
+        [string]$Drive = "C:\",
+        [int]$TopCount = 5,
+        [int]$DaysOld = 7
+    )
+    $results = @()
+    try {
+        $since = (Get-Date).AddDays(-$DaysOld)
+        $files = Get-ChildItem -Path $Drive -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.FullName -notlike "*\$Recycle.Bin\*" -and
+                $_.FullName -notlike "*\System Volume Information\*" -and
+                $_.Name -notlike "pagefile.sys" -and
+                $_.Name -notlike "hiberfil.sys" -and
+                $_.Name -notlike "swapfile.sys" -and
+                $_.LastWriteTime -ge $since
+            } |
+            Sort-Object Length -Descending |
+            Select-Object -First $TopCount
+
+        foreach ($f in $files) {
+            $owner = try { (Get-Acl -Path $f.FullName -ErrorAction SilentlyContinue).Owner } catch { "Bilinmiyor" }
+            if (-not $owner) { $owner = "Bilinmiyor" }
+            $sizeMb = [Math]::Round(($f.Length / 1MB), 1)
+            $sizeGb = [Math]::Round(($f.Length / 1GB), 2)
+            $sizeStr = if ($sizeGb -ge 1) { "$sizeGb GB ($sizeMb MB)" } else { "$sizeMb MB" }
+
+            $results += [PSCustomObject]@{
+                Dosya = $f.FullName
+                Boyut = $sizeStr
+                Sahibi = $owner
+                Tarih = $f.LastWriteTime.ToString("dd.MM.yyyy HH:mm")
+            }
+        }
+    } catch {}
+
+    return $results
 }
 
 function Execute-TaskSafely {
@@ -446,13 +688,26 @@ while ($true) {
         $ups = Get-UpsStatus
         $sessions = Get-ActiveSessionsAndNewLogins
         $heal = Invoke-SelfHealing -DiskFreeGb $diskFreeGb -DiskTotalGb $diskTotalGb
-        $secEvents = Invoke-SecurityAndBruteForceGuard
+        $ghostKilled = @()
+        if ($script:GhostKillerEnabled -and $script:GhostMaxIdle -gt 0) {
+            $ghostKilled = Invoke-GhostSessionKiller -MaxIdleMinutes $script:GhostMaxIdle -ExcludeUsers $script:GhostExcludeUsers
+        }
+        $allHealed = @($heal.healed_events) + @($ghostKilled)
+        $auditEvts = if ($script:AuditTrailEnabled) { Invoke-AuditTrailGuard } else { @() }
+        $secEvents = if ($script:BruteForceEnabled) { Invoke-SecurityAndBruteForceGuard } else { @() }
         $backupSt = Get-BackupStatus
 
         # Eğer internet kesintisinden yeni çıkıldıysa Kara Kutu raporunu al
         $outageReport = ""
         if ($net.wan_ok) {
+            $script:ConsecutiveWanFailures = 0
             $outageReport = Consume-OfflineOutageReport
+        } else {
+            $script:ConsecutiveWanFailures++
+            # Sadece art arda en az 3 deneme (yaklaşık 20-30 saniye) boyunca WAN yoksa kara kutu kesinti kaydı aç
+            if ($script:ConsecutiveWanFailures -ge 3) {
+                Record-OfflineOutage -NetInfo $net
+            }
         }
 
         $hbPayload = @{
@@ -476,7 +731,8 @@ while ($true) {
             ups_battery_pct = $ups.pct
             active_users = $sessions.active_users
             new_logins = $sessions.new_logins
-            healed_events = $heal.healed_events
+            healed_events = $allHealed
+            audit_events = $auditEvts
             services = $heal.services
             security_events = $secEvents
             backup_status = $backupSt
@@ -485,7 +741,32 @@ while ($true) {
 
         $hbRes = Invoke-HubRequest -Path "/api/agent/heartbeat" -Method "POST" -Body $hbPayload
         if (-not $hbRes) {
-            Record-OfflineOutage -NetInfo $net
+            $script:ConsecutiveHubFailures++
+            # Sadece ve sadece hem Hub hem de WAN gerçekten 4 deneme boyunca yoksa kaydet
+            if ($script:ConsecutiveHubFailures -ge 4 -and (-not $net.wan_ok)) {
+                Record-OfflineOutage -NetInfo $net
+            }
+        } else {
+            $script:ConsecutiveHubFailures = 0
+            if ($null -ne $hbRes.ghost_session_max_idle_min) {
+                $script:GhostMaxIdle = [int]$hbRes.ghost_session_max_idle_min
+            }
+            if ($null -ne $hbRes.ghost_session_enabled) {
+                $script:GhostKillerEnabled = [bool]$hbRes.ghost_session_enabled
+                if (-not $script:GhostKillerEnabled) { $script:GhostMaxIdle = 0 }
+            }
+            if ($null -ne $hbRes.ghost_session_exclude_users) {
+                $script:GhostExcludeUsers = @($hbRes.ghost_session_exclude_users)
+            }
+            if ($null -ne $hbRes.auto_disk_clean_enabled) {
+                $script:AutoDiskCleanEnabled = [bool]$hbRes.auto_disk_clean_enabled
+            }
+            if ($null -ne $hbRes.audit_trail_enabled) {
+                $script:AuditTrailEnabled = [bool]$hbRes.audit_trail_enabled
+            }
+            if ($null -ne $hbRes.brute_force_block_enabled) {
+                $script:BruteForceEnabled = [bool]$hbRes.brute_force_block_enabled
+            }
         }
 
         # Bekleyen görevleri çek ve çalıştır

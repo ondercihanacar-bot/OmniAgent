@@ -9,7 +9,15 @@
     - Uzaktan PowerShell & Güvenlik Duvarı İşlem Yürütücü
 #>
 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+} catch {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+}
+# Kaspersky / Antivirüs HTTPS (SSL MITM) Taraması Takılmasını Önle
+try {
+    [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
+} catch {}
 $ErrorActionPreference = "Continue"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
