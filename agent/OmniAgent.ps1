@@ -246,6 +246,70 @@ function Get-ActiveSessionsAndNewLogins {
     }
 }
 
+function Invoke-DeepDiskCleanup {
+    <# Kapsamlı ve Güvenli Derin Disk Temizliği:
+       - Windows Temp & Kullanıcı Temp (Tüm Profiller)
+       - Windows Update İndirme Önbelleği (SoftwareDistribution\Download)
+       - Geri Dönüşüm Kutusu (Tüm Sürücüler)
+       - Windows Hata Raporları & Crash Dumps
+       - 30 Günden Eski IIS Web Logları
+    #>
+    $beforeFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+
+    # 1. Windows Temp
+    try { Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue } catch {}
+
+    # 2. Tüm Kullanıcı Profillerinin Temp Klasörleri (Terminal Server & Yerel)
+    try {
+        Get-ChildItem -Path "C:\Users" -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $uTemp = Join-Path $_.FullName "AppData\Local\Temp"
+            if (Test-Path $uTemp) {
+                Remove-Item -Path "$uTemp\*" -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    } catch {}
+
+    # 3. Windows Update Eski İndirme Önbelleği
+    try {
+        $swDownload = "C:\Windows\SoftwareDistribution\Download"
+        if (Test-Path $swDownload) {
+            Remove-Item -Path "$swDownload\*" -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    # 4. Geri Dönüşüm Kutuları
+    try { Clear-RecycleBin -Force -ErrorAction SilentlyContinue } catch {}
+
+    # 5. Windows Hata Raporları & Minidump
+    try {
+        Remove-Item -Path "C:\ProgramData\Microsoft\Windows\WER\ReportArchive\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "C:\ProgramData\Microsoft\Windows\WER\ReportQueue\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "C:\Windows\Minidump\*" -Force -ErrorAction SilentlyContinue
+    } catch {}
+
+    # 6. Eski IIS Web Logları (30 günden eski)
+    try {
+        $iisLogPath = "C:\inetpub\logs\LogFiles"
+        if (Test-Path $iisLogPath) {
+            Get-ChildItem -Path $iisLogPath -Recurse -File -Filter "*.log" -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } |
+                Remove-Item -Force -ErrorAction SilentlyContinue
+        }
+    } catch {}
+
+    $afterFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
+    $freedMb = [Math]::Round((($afterFree - $beforeFree) / 1MB), 1)
+    if ($freedMb -lt 0) { $freedMb = 0 }
+    $freedGb = [Math]::Round(($freedMb / 1024), 2)
+    $gainStr = if ($freedGb -ge 1) { "$freedGb GB ($freedMb MB)" } else { "$freedMb MB" }
+
+    return @{
+        freed_mb = $freedMb
+        gain_str = $gainStr
+        total_free_gb = [Math]::Round(($afterFree / 1GB), 1)
+    }
+}
+
 function Invoke-SelfHealing {
     param([double]$DiskFreeGb, [double]$DiskTotalGb)
     $healedEvents = @()
@@ -273,21 +337,14 @@ function Invoke-SelfHealing {
         }
     }
 
-    # 2. Disk Doluluğu Otonom Temizliği
+    # 2. Disk Doluluğu Otonom Derin Temizliği
     if ($DiskTotalGb -gt 0) {
         $usedPct = (($DiskTotalGb - $DiskFreeGb) / $DiskTotalGb) * 100
-        $threshold = if ($Config.AutoCleanDiskThresholdPct) { [double]$Config.AutoCleanDiskThresholdPct } else { 90 }
+        $threshold = if ($Config.AutoCleanDiskThresholdPct) { [double]$Config.AutoCleanDiskThresholdPct } else { 88 }
         if ($usedPct -ge $threshold -and ((Get-Date) - $script:LastDiskCleanTime).TotalHours -ge 6) {
-            try {
-                $beforeFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
-                Remove-Item -Path "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-                $afterFree = (Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'").FreeSpace
-                $freedMb = [Math]::Round((($afterFree - $beforeFree) / 1MB), 1)
-                if ($freedMb -lt 0) { $freedMb = 0 }
-                $script:LastDiskCleanTime = Get-Date
-                $healedEvents += "C: Diski %$([Math]::Round($usedPct,1)) doluluğa ulaştığı için otonom Temp temizliği yapıldı ($freedMb MB alan açıldı)."
-            } catch {}
+            $clRes = Invoke-DeepDiskCleanup
+            $script:LastDiskCleanTime = Get-Date
+            $healedEvents += "C: Diski %$([Math]::Round($usedPct,1)) doluluğa ulaştığı için otonom derin disk temizliği yapıldı ($($clRes.gain_str) alan açıldı, Kalan Boş: $($clRes.total_free_gb) GB)."
         }
     }
 

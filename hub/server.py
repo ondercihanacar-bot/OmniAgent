@@ -777,8 +777,19 @@ class OmniHubHandler(BaseHTTPRequestHandler):
                     disk_list.append(f"• **{s['server_id']}**: C: Boş: {s.get('disk_free_gb', 0)} GB / Toplam: {s.get('disk_total_gb', 0)} GB")
                 response_text = f"💾 **Disk Alanı Bilgisi:**\n\n" + "\n".join(disk_list)
                 if target_sid:
-                    cmd = "Remove-Item -Path $env:TEMP\\* -Recurse -Force -ErrorAction SilentlyContinue; Write-Output 'Windows Temp klasorleri basariyla temizlendi.'"
-                    action_executed = f"{target_sid} üzerinde otomatik disk temizliği başlatıldı."
+                    cmd = (
+                        "$b=(Get-CimInstance Win32_LogicalDisk -Filter \"DeviceID='C:'\").FreeSpace; "
+                        "Remove-Item 'C:\\Windows\\Temp\\*' -Recurse -Force -ErrorAction SilentlyContinue; "
+                        "Get-ChildItem 'C:\\Users' -Directory -ErrorAction SilentlyContinue | ForEach-Object { $p=Join-Path $_.FullName 'AppData\\Local\\Temp'; if(Test-Path $p){Remove-Item \"$p\\*\" -Recurse -Force -ErrorAction SilentlyContinue} }; "
+                        "if(Test-Path 'C:\\Windows\\SoftwareDistribution\\Download'){Remove-Item 'C:\\Windows\\SoftwareDistribution\\Download\\*' -Recurse -Force -ErrorAction SilentlyContinue}; "
+                        "Clear-RecycleBin -Force -ErrorAction SilentlyContinue; "
+                        "Remove-Item 'C:\\ProgramData\\Microsoft\\Windows\\WER\\*' -Recurse -Force -ErrorAction SilentlyContinue; "
+                        "if(Test-Path 'C:\\inetpub\\logs\\LogFiles'){Get-ChildItem 'C:\\inetpub\\logs\\LogFiles' -Recurse -File -Filter '*.log' -ErrorAction SilentlyContinue | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-30)} | Remove-Item -Force -ErrorAction SilentlyContinue}; "
+                        "$a=(Get-CimInstance Win32_LogicalDisk -Filter \"DeviceID='C:'\").FreeSpace; "
+                        "$f=[Math]::Round((($a-$b)/1MB),1); if($f -lt 0){$f=0}; "
+                        "Write-Output \"Derin Disk Temizligi Tamamlandi: $f MB ($([Math]::Round($f/1024,2)) GB) bos alan acildi. (Temizlenen: Windows Temp, Tum Kullanici AppData/Temp profilleri, Windows Update onbellegi, Geri Donusum Kutusu, WER Hata loglari, 30+ gunluk IIS loglari). Guncel C: Bos Alan: $([Math]::Round($a/1GB,1)) GB.\""
+                    )
+                    action_executed = f"{target_sid} üzerinde otonom derin disk temizliği (Temp, Update önbelleği, Geri Dönüşüm, Dump) yürütüldü."
                     task_id = str(uuid.uuid4())[:8]
                     cur.execute("INSERT INTO tasks (task_id, server_id, command, task_type, status, created_at, timeout_sec) VALUES (?, ?, ?, 'POWERSHELL', 'PENDING', ?, 25)",
                                 (task_id, target_sid, cmd, now))
