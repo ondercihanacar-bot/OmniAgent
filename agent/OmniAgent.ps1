@@ -20,13 +20,21 @@ try {
 } catch {}
 $ErrorActionPreference = "Continue"
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { "C:\OmniAgent" }
+if (-not $ScriptDir -or -not (Test-Path $ScriptDir)) { $ScriptDir = "C:\OmniAgent" }
 $ConfigFile = Join-Path $ScriptDir "config.json"
 $OutageLogFile = Join-Path $ScriptDir "offline_outage.json"
 
 if (-not (Test-Path $ConfigFile)) {
-    Write-Host "[!] HATA: config.json bulunamadi!" -ForegroundColor Red
-    exit 1
+    $defaultCfg = @{
+        HubUrl = "https://omniagent-hub.onrender.com"
+        AuthToken = "OmniAgentSecretToken2026"
+        ServerId = $env:COMPUTERNAME
+        CustomerName = "KATSIMTAS"
+        HeartbeatIntervalSec = 6
+        GatewayIp = "192.168.1.1"
+    }
+    $defaultCfg | ConvertTo-Json | Set-Content $ConfigFile -Encoding UTF8
 }
 
 $Config = Get-Content $ConfigFile -Raw -Encoding UTF8 | ConvertFrom-Json
