@@ -118,24 +118,30 @@
         button.btn-primary:hover { background: #0369a1; }
         button.btn-danger { background: #991b1b; border-color: #ef4444; }
 
-        /* KPI Grid - Kompakt & İnce Tasarım */
+        /* KPI Grid - Modern & Dengeli Tasarım */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 10px;
-            margin-bottom: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
         }
         .kpi-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 8px 14px;
-            border-radius: 8px;
+            background: linear-gradient(180deg, #111827 0%, #0d1527 100%);
+            border: 1px solid #1e293b;
+            padding: 12px 16px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+            transition: all 0.2s ease;
         }
-        .kpi-title { color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .kpi-val { font-size: 19px; font-weight: 800; margin-top: 0; margin-left: 8px; }
+        .kpi-card:hover {
+            border-color: #334155;
+            transform: translateY(-1px);
+        }
+        .kpi-title { color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-val { font-size: 21px; font-weight: 800; margin-top: 0; margin-left: 8px; }
 
         /* Sade Öngörü Raporu */
         .summary-banner {
@@ -144,6 +150,7 @@
             border-radius: 10px;
             padding: 10px 16px;
             margin-bottom: 14px;
+        }
         .summary-banner h3 {
             color: #60a5fa;
             font-size: 13.5px;
@@ -222,41 +229,51 @@
         /* Server Cards */
         .servers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
             gap: 16px;
         }
         .srv-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
+            background: linear-gradient(180deg, #111827 0%, #0c121e 100%);
+            border: 1px solid #1e293b;
             border-radius: 14px;
-            padding: 18px;
+            padding: 18px 20px;
             position: relative;
-            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.25s ease;
+        }
+        .srv-card:hover {
+            border-color: #38bdf8;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.45);
         }
         .srv-card.online { border-top: 4px solid var(--green); }
         .srv-card.offline { border-top: 4px solid var(--red); background: #1a1116; }
         .srv-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        .srv-name { font-size: 17px; font-weight: 700; color: #fff; }
-        .srv-sub { font-size: 12px; color: var(--text-muted); }
+        .srv-name { font-size: 16.5px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
+        .srv-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
         .badge {
             padding: 4px 10px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
         .badge-online { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; }
         .badge-offline { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
 
-        .metrics-bars { margin: 12px 0; display: grid; gap: 8px; }
+        .metrics-bars { margin: 14px 0; display: grid; gap: 10px; }
         .metric-row { font-size: 12px; }
-        .metric-label { display: flex; justify-content: space-between; margin-bottom: 3px; color: #cbd5e1; }
-        .progress { width: 100%; height: 7px; background: #1e293b; border-radius: 4px; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s; }
+        .metric-label { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 600; color: #cbd5e1; }
+        .progress { width: 100%; height: 8px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 9999px; transition: width 0.4s; }
 
         .info-pills {
             display: flex;
@@ -277,10 +294,16 @@
             gap: 8px;
             margin-top: 14px;
             padding-top: 12px;
-            border-top: 1px solid #1f2937;
+            border-top: 1px solid #1e293b;
             flex-wrap: wrap;
         }
-        .srv-actions button { padding: 6px 10px; font-size: 12px; }
+        .srv-actions button {
+            padding: 7px 11px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
 
         /* Alerts Feed */
         .alerts-box {
@@ -622,6 +645,7 @@
             <span>🚨 Canlı Alarm, Kesinti & Otonom Müdahale Akışı</span>
         </div>
         <div class="alerts-box" id="alertsContainer"></div>
+    </div>
 </div>
 
 <!-- MÜŞTERİ AI KONUŞMA & İŞLEM PENCERESİ (DRAWER) -->
@@ -1113,7 +1137,12 @@
         const alerts = data.alerts || [];
 
         if (alerts.length === 0) {
-            container.innerHTML = `<p style="color:var(--text-muted); font-size:13px;">Henüz kayıtlı alarm bulunmuyor.</p>`;
+            container.innerHTML = `
+            <div style="text-align:center; padding:36px 16px; color:var(--text-muted);">
+                <div style="font-size:36px; margin-bottom:10px;">🛡️</div>
+                <div style="font-size:14px; font-weight:600; color:#e2e8f0; margin-bottom:4px;">Tüm Sistemler Güvende & Stabil</div>
+                <div style="font-size:12px;">Aktif kesinti, aşırı yük veya güvenlik ihlali bulunmuyor.</div>
+            </div>`;
             return;
         }
 
