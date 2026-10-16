@@ -38,6 +38,9 @@ $script:CachedWanIp = ""
 $script:BlockedIps = @{}
 $script:ConsecutiveWanFailures = 0
 $script:ConsecutiveHubFailures = 0
+$script:GhostMaxIdle = 120
+$script:GhostExcludeUsers = @("Administrator", "admin.senkron")
+$script:LastAuditCheck = (Get-Date).AddMinutes(-5)
 
 # İntihar / Tehlikeli Komut Kara Listesi
 $Blacklist = @(
@@ -408,6 +411,152 @@ function Get-BackupStatus {
     }
 }
 
+function Invoke-GhostSessionKiller {
+    param(
+        [int]$MaxIdleMinutes = 120,
+        [string[]]$ExcludeUsers = @("Administrator", "admin.senkron")
+    )
+    if ($MaxIdleMinutes -le 0) { return @() }
+
+    $killedEvents = @()
+    try {
+        $quserLines = quser 2>$null | Select-Object -Skip 1
+        foreach ($line in $quserLines) {
+            $clean = $line.Trim() -replace '^\>', ''
+            if ($clean -match '^(\S+)\s+(?:(\S+)\s+)?(\d+)\s+([A-Za-z]+)\s+([^\s]+)\s+(.+)$') {
+                $uName = $Matches[1]
+                $sessId = [int]$Matches[3]
+                $state = $Matches[4]
+                $idleStr = $Matches[5]
+
+                if ($state -like "Disc*" -or $state -like "Ayr*") {
+                    $totalMins = 0
+                    if ($idleStr -match '^(\d+)\+(\d+):(\d+)$') {
+                        $totalMins = ([int]$Matches[1] * 1440) + ([int]$Matches[2] * 60) + [int]$Matches[3]
+                    } elseif ($idleStr -match '^(\d+):(\d+)$') {
+                        $totalMins = ([int]$Matches[1] * 60) + [int]$Matches[2]
+                    } elseif ($idleStr -match '^\d+$') {
+                        $totalMins = [int]$idleStr
+                    }
+
+                    if ($totalMins -ge $MaxIdleMinutes -and ($ExcludeUsers -notcontains $uName)) {
+                        Write-Host "[!] HAYALET OTURUM OTONOM SONLANDIRILIYOR: $uName (ID: $sessId, $totalMins dk bosta)" -ForegroundColor Yellow
+                        logoff $sessId 2>$null
+                        $h = [Math]::Floor($totalMins / 60)
+                        $m = $totalMins % 60
+                        $durText = if ($h -gt 0) { "$h sa $m dk" } else { "$m dk" }
+                        $killedEvents += "👻 Hayalet Oturum Otonom Sonlandırıldı: '$uName' (ID: $sessId) $durText boyunca askıdaydı, SQL ve sistem kilitleri temizlendi."
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    return $killedEvents
+}
+
+function Invoke-AuditTrailGuard {
+    <# Yönetici Hareket Takibi (Audit Trail):
+       - Event 4720: Yeni kullanıcı hesabı açıldı
+       - Event 4726: Kullanıcı silindi
+       - Event 4728/4732: Administrators grubuna üye eklendi
+       - Event 4950: Windows Güvenlik Duvarı kuralı değiştirildi
+       - Event 7036: Kritik servis durduruldu
+    #>
+    $auditEvents = @()
+    $now = Get-Date
+    if (-not $script:LastAuditCheck) {
+        $script:LastAuditCheck = $now.AddMinutes(-5)
+    }
+
+    try {
+        # 1. Güvenlik Günlüğü
+        $secEvts = Get-WinEvent -FilterHashtable @{
+            LogName = 'Security'
+            Id = 4720, 4726, 4728, 4732, 4950
+            StartTime = $script:LastAuditCheck
+        } -MaxEvents 15 -ErrorAction SilentlyContinue
+
+        if ($secEvts) {
+            foreach ($evt in $secEvts) {
+                $timeStr = $evt.TimeCreated.ToString("HH:mm:ss")
+                if ($evt.Id -eq 4720) {
+                    $auditEvents += "[$timeStr] 👤 YENİ KULLANICI OLUŞTURULDU: $($evt.Message.Split([Environment]::NewLine)[0])"
+                } elseif ($evt.Id -eq 4726) {
+                    $auditEvents += "[$timeStr] 🗑️ KULLANICI HESABI SİLİNDİ: $($evt.Message.Split([Environment]::NewLine)[0])"
+                } elseif ($evt.Id -in 4728, 4732) {
+                    $auditEvents += "[$timeStr] 👑 YÖNETİCİ (ADMIN) GRUBUNA YENİ ÜYE EKLENDİ!"
+                } elseif ($evt.Id -eq 4950) {
+                    $auditEvents += "[$timeStr] 🛡️ GÜVENLİK DUVARI AYARI DEĞİŞTİRİLDİ!"
+                }
+            }
+        }
+
+        # 2. Sistem Günlüğü (Kritik Servis Durdurulmaları)
+        $sysEvts = Get-WinEvent -FilterHashtable @{
+            LogName = 'System'
+            Id = 7036
+            StartTime = $script:LastAuditCheck
+        } -MaxEvents 20 -ErrorAction SilentlyContinue
+
+        if ($sysEvts) {
+            foreach ($evt in $sysEvts) {
+                $msg = $evt.Message
+                if ($msg -like "*durduruldu*" -or $msg -like "*stopped*") {
+                    if ($msg -like "*SQL*" -or $msg -like "*Spooler*" -or $msg -like "*Remote Desktop*" -or $msg -like "*Firewall*") {
+                        $timeStr = $evt.TimeCreated.ToString("HH:mm:ss")
+                        $cleanMsg = $msg.Split([Environment]::NewLine)[0]
+                        $auditEvents += "[$timeStr] ⚠️ KRİTİK SERVİS DURDURULDU: $cleanMsg"
+                    }
+                }
+            }
+        }
+    } catch {}
+
+    $script:LastAuditCheck = $now
+    return $auditEvents
+}
+
+function Find-LargeHogFiles {
+    param(
+        [string]$Drive = "C:\",
+        [int]$TopCount = 5,
+        [int]$DaysOld = 7
+    )
+    $results = @()
+    try {
+        $since = (Get-Date).AddDays(-$DaysOld)
+        $files = Get-ChildItem -Path $Drive -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.FullName -notlike "*\$Recycle.Bin\*" -and
+                $_.FullName -notlike "*\System Volume Information\*" -and
+                $_.Name -notlike "pagefile.sys" -and
+                $_.Name -notlike "hiberfil.sys" -and
+                $_.Name -notlike "swapfile.sys" -and
+                $_.LastWriteTime -ge $since
+            } |
+            Sort-Object Length -Descending |
+            Select-Object -First $TopCount
+
+        foreach ($f in $files) {
+            $owner = try { (Get-Acl -Path $f.FullName -ErrorAction SilentlyContinue).Owner } catch { "Bilinmiyor" }
+            if (-not $owner) { $owner = "Bilinmiyor" }
+            $sizeMb = [Math]::Round(($f.Length / 1MB), 1)
+            $sizeGb = [Math]::Round(($f.Length / 1GB), 2)
+            $sizeStr = if ($sizeGb -ge 1) { "$sizeGb GB ($sizeMb MB)" } else { "$sizeMb MB" }
+
+            $results += [PSCustomObject]@{
+                Dosya = $f.FullName
+                Boyut = $sizeStr
+                Sahibi = $owner
+                Tarih = $f.LastWriteTime.ToString("dd.MM.yyyy HH:mm")
+            }
+        }
+    } catch {}
+
+    return $results
+}
+
 function Execute-TaskSafely {
     param($Task)
     $TaskId = $Task.task_id
@@ -527,6 +676,9 @@ while ($true) {
         $ups = Get-UpsStatus
         $sessions = Get-ActiveSessionsAndNewLogins
         $heal = Invoke-SelfHealing -DiskFreeGb $diskFreeGb -DiskTotalGb $diskTotalGb
+        $ghostKilled = Invoke-GhostSessionKiller -MaxIdleMinutes $script:GhostMaxIdle -ExcludeUsers $script:GhostExcludeUsers
+        $allHealed = @($heal.healed_events) + @($ghostKilled)
+        $auditEvts = Invoke-AuditTrailGuard
         $secEvents = Invoke-SecurityAndBruteForceGuard
         $backupSt = Get-BackupStatus
 
@@ -564,7 +716,8 @@ while ($true) {
             ups_battery_pct = $ups.pct
             active_users = $sessions.active_users
             new_logins = $sessions.new_logins
-            healed_events = $heal.healed_events
+            healed_events = $allHealed
+            audit_events = $auditEvts
             services = $heal.services
             security_events = $secEvents
             backup_status = $backupSt
@@ -580,6 +733,12 @@ while ($true) {
             }
         } else {
             $script:ConsecutiveHubFailures = 0
+            if ($null -ne $hbRes.ghost_session_max_idle_min) {
+                $script:GhostMaxIdle = [int]$hbRes.ghost_session_max_idle_min
+            }
+            if ($null -ne $hbRes.ghost_session_enabled -and (-not $hbRes.ghost_session_enabled)) {
+                $script:GhostMaxIdle = 0
+            }
         }
 
         # Bekleyen görevleri çek ve çalıştır

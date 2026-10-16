@@ -521,6 +521,34 @@
             transition: all 0.2s;
         }
         .btn-chat-open:hover { filter: brightness(1.15); transform: translateY(-1px); }
+        .btn-chat-mic {
+            background: #1e293b;
+            color: #fff;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            width: 42px;
+            height: 42px;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-chat-mic:hover {
+            background: #334155;
+            border-color: #38bdf8;
+        }
+        .btn-chat-mic.listening {
+            background: #dc2626 !important;
+            border-color: #f87171 !important;
+            animation: micPulse 1s infinite alternate;
+        }
+        @keyframes micPulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            100% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+        }
     </style>
 </head>
 <body>
@@ -546,8 +574,23 @@
         </div>
     </div>
     <div class="header-actions">
+        <div style="display:flex; align-items:center; gap:6px; background:#1e293b; border:1px solid #334155; padding:5px 10px; border-radius:8px; font-size:12px;">
+            <span>👻 Hayalet Oturum:</span>
+            <select id="ghostSessionSelect" onchange="setGhostSessionTimeout(this.value)" style="background:#090d16; color:#38bdf8; border:1px solid #334155; border-radius:6px; padding:3px 6px; font-size:11.5px; font-weight:bold; outline:none; cursor:pointer;">
+                <option value="10">10 Dakika</option>
+                <option value="20">20 Dakika</option>
+                <option value="30">30 Dakika</option>
+                <option value="60">1 Saat</option>
+                <option value="120" selected>2 Saat (Önerilen)</option>
+                <option value="180">3 Saat</option>
+                <option value="240">4 Saat</option>
+                <option value="300">5 Saat</option>
+                <option value="0">Devre Dışı</option>
+            </select>
+        </div>
+        <button style="background:#3730a3; border-color:#6366f1;" onclick="testMorningBriefing()" title="08:15 Sabah Bültenini Hemen Test Et">☕ Sabah Bülteni Test</button>
         <button style="background:#065f46; border-color:#10b981;" onclick="openWaModal()">📲 WhatsApp Bağla</button>
-        <button onclick="sendTestAlert()">🔔 Test Bildirimi Gönder</button>
+        <button onclick="sendTestAlert()">🔔 Test Bildirimi</button>
         <button class="btn-primary" onclick="openBroadcastModal()">⚡ Tüm Sunuculara Komut</button>
         <button onclick="refreshAll()">🔄 Yenile</button>
         <button class="btn-danger" onclick="doLogout()">🔒 Kilitle</button>
@@ -608,7 +651,13 @@
             <h3 id="chatCustTitle">🏢 Müşteri Asistanı</h3>
             <div class="chat-header-sub" id="chatCustSubtitle">Yükleniyor...</div>
         </div>
-        <button class="chat-close-btn" onclick="closeCustomerChat()">&times;</button>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:#cbd5e1; cursor:pointer; background:#1e293b; padding:4px 8px; border-radius:12px; border:1px solid #334155;">
+                <input type="checkbox" id="ttsToggle" checked onchange="toggleTTS(this.checked)" style="accent-color:#10b981; cursor:pointer;">
+                <span>🔊 Sesli Yanıt</span>
+            </label>
+            <button class="chat-close-btn" onclick="closeCustomerChat()">&times;</button>
+        </div>
     </div>
 
     <div class="chat-quick-actions">
@@ -617,15 +666,22 @@
         </select>
         <button class="quick-pill" onclick="sendQuickPrompt('Kimler açık, hangi kullanıcılar bağlı?')">👥 Kimler Açık?</button>
         <button class="quick-pill" onclick="sendQuickPrompt('RAM ve CPU durumu nedir, sunucuyu ne yoruyor?')">📊 RAM & CPU</button>
-        <button class="quick-pill" onclick="sendQuickPrompt('Son 4 saatteki hata ve arıza loglarını analiz et')">🔍 Arıza Taraması</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Diski ne şişirdi, dev dosyaları ve sahiplerini bul')">📁 Dev Dosyayı Bul</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Hayalet kilitli oturumları temizle')">👻 Hayalet Oturum Temizle</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Kahin modunda sunucunun arıza falına bak')">🔮 Kahin Falı</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Kim ne değiştirdi, yönetici hareket kayıtlarını göster')">🔍 Kim Ne Yaptı?</button>
         <button class="quick-pill" onclick="sendQuickPrompt('Temp dosyalarını ve diski temizle')">🧹 Disk Temizle</button>
+        <button class="quick-pill" onclick="sendQuickPrompt('Son 4 saatteki hata ve arıza loglarını analiz et')">🔍 Arıza Taraması</button>
         <button class="quick-pill" onclick="sendQuickPrompt('Spooler yazıcı servisini yeniden başlat')">🔄 Spooler Reset</button>
     </div>
 
     <div class="chat-body" id="chatMessages"></div>
 
     <div class="chat-footer">
-        <textarea class="chat-input" id="chatInput" placeholder="Bu müşteri için bir soru veya talimat yazın... (Enter: Gönder)" onkeydown="handleChatKeyDown(event)"></textarea>
+        <button class="btn-chat-mic" id="btnChatMic" onclick="toggleSpeechRecognition()" title="Sesli Konuş (Mikrofon)">
+            <span id="micIcon">🎙️</span>
+        </button>
+        <textarea class="chat-input" id="chatInput" placeholder="Mikrofona konuşun veya soru/talimat yazın... (Enter: Gönder)" onkeydown="handleChatKeyDown(event)"></textarea>
         <button class="btn-chat-send" id="btnChatSend" onclick="submitChat()">
             <span>Gönder</span> ➔
         </button>
@@ -1165,6 +1221,7 @@
                 output: res.task_output || ""
             });
             renderChatMessages();
+            speakText(res.response);
             refreshAll();
         } catch (err) {
             const loadingEl = document.getElementById("chatLoadingBubble");
@@ -1178,6 +1235,161 @@
             });
             renderChatMessages();
         }
+    }
+
+    /* ============================================================== */
+    /* 🎙️ CANLI TÜRKÇE SESLİ KOMUT (WEB SPEECH API) & SESLİ YANIT (TTS) */
+    /* ============================================================== */
+    let recognition = null;
+    let isListening = false;
+    let ttsEnabled = localStorage.getItem("omni_tts_enabled") !== "false";
+
+    function initSpeech() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return;
+        recognition = new SpeechRecognition();
+        recognition.lang = "tr-TR";
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        recognition.onstart = () => {
+            isListening = true;
+            const btn = document.getElementById("btnChatMic");
+            if (btn) {
+                btn.classList.add("listening");
+                btn.innerHTML = `<span style="font-size:12px; font-weight:bold;">🔴 Dinliyor</span>`;
+            }
+            const inp = document.getElementById("chatInput");
+            if (inp) inp.placeholder = "Sizi dinliyorum, konuşun...";
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            const inp = document.getElementById("chatInput");
+            if (inp && transcript) {
+                inp.value = transcript;
+                submitChat();
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.warn("Ses tanıma hatası:", event.error);
+            stopListening();
+        };
+
+        recognition.onend = () => {
+            stopListening();
+        };
+    }
+
+    function toggleSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Tarayıcınız canlı ses tanıma özelliğini desteklemiyor. Lütfen Google Chrome veya Microsoft Edge kullanın.");
+            return;
+        }
+        if (!recognition) initSpeech();
+
+        if (isListening) {
+            recognition.stop();
+        } else {
+            try {
+                recognition.start();
+            } catch(e) {
+                recognition.stop();
+                setTimeout(() => recognition.start(), 200);
+            }
+        }
+    }
+
+    function stopListening() {
+        isListening = false;
+        const btn = document.getElementById("btnChatMic");
+        if (btn) {
+            btn.classList.remove("listening");
+            btn.innerHTML = `<span>🎙️</span>`;
+        }
+        const inp = document.getElementById("chatInput");
+        if (inp) inp.placeholder = "Mikrofona konuşun veya soru/talimat yazın... (Enter: Gönder)";
+    }
+
+    function toggleTTS(enabled) {
+        ttsEnabled = enabled;
+        localStorage.setItem("omni_tts_enabled", enabled ? "true" : "false");
+        if (!enabled && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+    }
+
+    function speakText(text) {
+        if (!ttsEnabled || !('speechSynthesis' in window) || !text) return;
+        window.speechSynthesis.cancel();
+
+        let clean = text
+            .replace(/\*\*(.*?)\*\*/g, '$1')
+            .replace(/\*(.*?)\*/g, '$1')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/•/g, '')
+            .replace(/#+/g, '')
+            .replace(/\[HATA\]/g, 'Hata')
+            .replace(/[^\p{L}\p{N}\s.,:!?%-]/gu, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (clean.length > 250) {
+            const sentences = clean.split(/[.!?]+/);
+            clean = (sentences[0] || "") + ". " + (sentences[1] || "") + ".";
+        }
+
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = "tr-TR";
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        const trVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith("tr"));
+        if (trVoice) utterance.voice = trVoice;
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    /* ============================================================== */
+    /* 👻 HAYALET OTURUM SÜRESİ & ☕ SABAH BÜLTENİ TESTİ */
+    /* ============================================================== */
+    async function setGhostSessionTimeout(val) {
+        const mins = parseInt(val);
+        try {
+            const cfg = await apiCall("/api/config");
+            if (!cfg.ghost_session_killer) cfg.ghost_session_killer = {};
+            cfg.ghost_session_killer.enabled = (mins > 0);
+            cfg.ghost_session_killer.max_idle_minutes = mins;
+            await apiCall("/api/config/update", "POST", cfg);
+            alert(`✅ Hayalet Oturum Zaman Aşımı ${mins > 0 ? mins + ' dakika' : 'KAPALI'} olarak güncellendi. Ajanlar otonom senkronize edildi.`);
+        } catch (e) {
+            alert("Ayar kaydedilemedi: " + e.message);
+        }
+    }
+
+    async function testMorningBriefing() {
+        try {
+            const res = await apiCall("/api/notifications/briefing/test", "POST");
+            alert("☀️ Sabah Sistem Sağlık Bülteni başarıyla oluşturuldu ve bildirim kanallarına gönderildi!\n\nÖzet:\n" + (res.briefing || "").slice(0, 300) + "...");
+            refreshAll();
+        } catch (e) {
+            alert("Bülten testi hatası: " + e.message);
+        }
+    }
+
+    async function loadConfigSettings() {
+        try {
+            const cfg = await apiCall("/api/config");
+            if (cfg.ghost_session_killer && cfg.ghost_session_killer.max_idle_minutes !== undefined) {
+                const el = document.getElementById("ghostSessionSelect");
+                if (el) {
+                    el.value = cfg.ghost_session_killer.enabled ? String(cfg.ghost_session_killer.max_idle_minutes) : "0";
+                }
+            }
+        } catch(e) {}
     }
 
     async function refreshAll() {
@@ -1197,6 +1409,7 @@
     if (AUTH_TOKEN) {
         document.getElementById("loginOverlay").style.display = "none";
         refreshAll();
+        loadConfigSettings();
     }
     setInterval(refreshAll, 4000);
 </script>

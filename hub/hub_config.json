@@ -3,6 +3,11 @@
   "admin_password": "2213",
   "auth_token": "OmniAgentSecretToken2026",
   "offline_threshold_sec": 90,
+  "ghost_session_killer": {
+    "enabled": true,
+    "max_idle_minutes": 120,
+    "exclude_users": ["Administrator", "admin.senkron"]
+  },
   "work_hours": {
     "start": "08:30",
     "end": "18:30",
