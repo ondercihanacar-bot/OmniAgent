@@ -118,39 +118,41 @@
         button.btn-primary:hover { background: #0369a1; }
         button.btn-danger { background: #991b1b; border-color: #ef4444; }
 
-        /* KPI Grid */
+        /* KPI Grid - Kompakt & İnce Tasarım */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
         }
         .kpi-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            padding: 16px 20px;
-            border-radius: 12px;
+            padding: 8px 14px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .kpi-title { color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; }
-        .kpi-val { font-size: 28px; font-weight: 800; margin-top: 6px; }
+        .kpi-title { color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-val { font-size: 19px; font-weight: 800; margin-top: 0; margin-left: 8px; }
 
         /* Sade Öngörü Raporu */
         .summary-banner {
             background: linear-gradient(135deg, #111827 0%, #172554 100%);
             border: 1px solid #1d4ed8;
-            border-radius: 12px;
-            padding: 16px 22px;
-            margin-bottom: 22px;
-        }
+            border-radius: 10px;
+            padding: 10px 16px;
+            margin-bottom: 14px;
         .summary-banner h3 {
             color: #60a5fa;
-            font-size: 15px;
-            margin-bottom: 8px;
+            font-size: 13.5px;
+            margin-bottom: 6px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .warning-list { list-style: none; font-size: 14px; }
+        .warning-list { list-style: none; font-size: 13px; }
         .warning-list li { padding: 4px 0; }
 
         /* Main Layout */
