@@ -70,21 +70,21 @@
             justify-content: space-between;
             align-items: center;
             background: linear-gradient(90deg, #0f172a 0%, #1e1b4b 100%);
-            padding: 18px 26px;
-            border-radius: 14px;
+            padding: 12px 20px;
+            border-radius: 12px;
             border: 1px solid #312e81;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            margin-bottom: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
         .brand {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
         }
         .pulse-dot {
-            width: 14px; height: 14px;
+            width: 12px; height: 12px;
             background: var(--green);
             border-radius: 50%;
             box-shadow: 0 0 12px var(--green);
@@ -99,18 +99,18 @@
             50% { transform: scale(1.2); opacity: 1; }
             100% { transform: scale(0.95); opacity: 0.8; }
         }
-        .brand h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.5px; }
-        .brand span { color: var(--accent); font-size: 13px; display: block; }
-        .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+        .brand span { color: var(--accent); font-size: 11.5px; display: block; }
+        .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         button {
             background: #1e293b;
             color: #fff;
             border: 1px solid #334155;
-            padding: 9px 15px;
+            padding: 7px 13px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             transition: all 0.2s;
         }
         button:hover { background: #334155; border-color: var(--accent); }
@@ -118,85 +118,58 @@
         button.btn-primary:hover { background: #0369a1; }
         button.btn-danger { background: #991b1b; border-color: #ef4444; }
 
-        /* KPI Grid - Modern & Dengeli Tasarım */
+        /* KPI Grid - Tek Satır İnce Şerit */
         .kpi-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
-            gap: 12px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
         }
         .kpi-card {
             background: linear-gradient(180deg, #111827 0%, #0d1527 100%);
             border: 1px solid #1e293b;
-            padding: 12px 16px;
-            border-radius: 12px;
+            padding: 8px 14px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-            transition: all 0.2s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
         }
-        .kpi-card:hover {
-            border-color: #334155;
-            transform: translateY(-1px);
-        }
-        .kpi-title { color: var(--text-muted); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-        .kpi-val { font-size: 21px; font-weight: 800; margin-top: 0; margin-left: 8px; }
+        .kpi-title { color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; }
+        .kpi-val { font-size: 18px; font-weight: 800; margin-top: 0; margin-left: 8px; }
 
-        /* Sade Öngörü Raporu */
-        .summary-banner {
-            background: linear-gradient(135deg, #111827 0%, #172554 100%);
-            border: 1px solid #1d4ed8;
-            border-radius: 10px;
-            padding: 10px 16px;
-            margin-bottom: 14px;
-        }
-        .summary-banner h3 {
-            color: #60a5fa;
-            font-size: 13.5px;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .warning-list { list-style: none; font-size: 13px; }
-        .warning-list li { padding: 4px 0; }
-
-        /* Main Layout */
+        /* Tam Ekran Tek Sütun Ana Düzen */
         .main-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-        }
-        @media (max-width: 1100px) {
-            .main-grid { grid-template-columns: 1fr; }
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
         }
         .section-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
-            margin-bottom: 14px;
+            margin-bottom: 8px;
             color: #e2e8f0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        /* Müşteri Grubu Kartı & Bölümü */
+        /* Müşteri Grubu & Yatay Tablo (Datadog / NOC Tarzı) */
         .customer-group {
             background: #0d131f;
             border: 1px solid #1e293b;
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.35);
         }
         .customer-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid #1f2937;
+            padding: 10px 16px;
+            background: linear-gradient(90deg, #111827 0%, #172033 100%);
+            border-bottom: 1px solid #1e293b;
             flex-wrap: wrap;
             gap: 10px;
         }
@@ -206,112 +179,118 @@
             gap: 10px;
         }
         .customer-title h2 {
-            font-size: 19px;
+            font-size: 16px;
             font-weight: 700;
             color: #38bdf8;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.4px;
         }
         .customer-tags {
             display: flex;
+            align-items: center;
             gap: 8px;
             flex-wrap: wrap;
         }
         .cust-tag {
             background: #1e293b;
             border: 1px solid #334155;
-            color: #94a3b8;
-            padding: 4px 10px;
+            color: #cbd5e1;
+            padding: 3px 10px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 600;
         }
 
-        /* Server Cards */
-        .servers-grid {
+        /* Yatay Sunucu Tablosu */
+        .srv-table-head {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
-            gap: 16px;
-        }
-        .srv-card {
-            background: linear-gradient(180deg, #111827 0%, #0c121e 100%);
-            border: 1px solid #1e293b;
-            border-radius: 14px;
-            padding: 18px 20px;
-            position: relative;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: all 0.25s ease;
-        }
-        .srv-card:hover {
-            border-color: #38bdf8;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.45);
-        }
-        .srv-card.online { border-top: 4px solid var(--green); }
-        .srv-card.offline { border-top: 4px solid var(--red); background: #1a1116; }
-        .srv-header {
-            display: flex;
-            justify-content: space-between;
+            grid-template-columns: 2.3fr 1.4fr 1.6fr 1.9fr 2.8fr;
+            gap: 14px;
+            padding: 7px 16px;
+            background: #080c14;
+            border-bottom: 1px solid #1e293b;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
             align-items: center;
-            margin-bottom: 14px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-        .srv-name { font-size: 16.5px; font-weight: 700; color: #fff; letter-spacing: 0.3px; }
-        .srv-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .srv-row {
+            display: grid;
+            grid-template-columns: 2.3fr 1.4fr 1.6fr 1.9fr 2.8fr;
+            gap: 14px;
+            padding: 10px 16px;
+            align-items: center;
+            border-bottom: 1px solid rgba(30, 41, 59, 0.75);
+            background: #111827;
+            transition: background 0.15s ease;
+        }
+        .srv-row:last-child { border-bottom: none; }
+        .srv-row:hover { background: #172135; }
+        .srv-row.online { border-left: 4px solid var(--green); }
+        .srv-row.offline { border-left: 4px solid var(--red); background: #1a1116; }
+
+        @media (max-width: 1050px) {
+            .srv-table-head { display: none; }
+            .srv-row { grid-template-columns: 1fr; gap: 10px; padding: 14px; }
+        }
+
+        .srv-info-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .srv-status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .srv-status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+        .srv-status-dot.offline { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+        .srv-name { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .srv-sub { font-size: 11.5px; color: var(--text-muted); }
+
         .badge {
-            padding: 4px 10px;
+            padding: 3px 9px;
             border-radius: 20px;
             font-size: 11px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
         }
         .badge-online { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid #059669; }
         .badge-offline { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #dc2626; }
 
-        .metrics-bars { margin: 14px 0; display: grid; gap: 10px; }
-        .metric-row { font-size: 12px; }
+        .metric-cell { font-size: 11.5px; }
         .metric-label { display: flex; justify-content: space-between; margin-bottom: 4px; font-weight: 600; color: #cbd5e1; }
-        .progress { width: 100%; height: 8px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
+        .progress { width: 100%; height: 6px; background: #1e293b; border-radius: 9999px; overflow: hidden; }
         .progress-fill { height: 100%; border-radius: 9999px; transition: width 0.4s; }
 
-        .info-pills {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin: 12px 0;
-        }
-        .pill {
-            background: #1e293b;
-            border: 1px solid #334155;
-            padding: 4px 9px;
-            border-radius: 6px;
-            font-size: 11px;
-            color: #e2e8f0;
-        }
         .srv-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 14px;
-            padding-top: 12px;
-            border-top: 1px solid #1e293b;
+            justify-content: flex-end;
+            gap: 6px;
             flex-wrap: wrap;
         }
         .srv-actions button {
-            padding: 7px 11px;
-            font-size: 12px;
+            padding: 5px 9px;
+            font-size: 11.5px;
             font-weight: 600;
-            border-radius: 8px;
-            transition: all 0.2s;
+            border-radius: 6px;
+            transition: all 0.15s;
         }
 
-        /* Alerts Feed */
+        /* Kompakt Alt Alarm Şeridi */
         .alerts-box {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 16px;
-            max-height: 680px;
+            border-radius: 10px;
+            padding: 10px 14px;
+            max-height: 150px;
             overflow-y: auto;
         }
         .alert-item {
@@ -1062,45 +1041,61 @@
                 `<span class="badge badge-online">🟢 ${onlineInGroup}/${g.servers.length} Aktif</span>` :
                 `<span class="badge badge-offline">🔴 ${g.servers.length - onlineInGroup} Kesinti</span>`;
 
-            const cardsHtml = g.servers.map(s => {
+            const rowsHtml = g.servers.map(s => {
                 const online = s.is_online;
                 const diskUsedPct = s.disk_total_gb > 0 ? Math.round(((s.disk_total_gb - s.disk_free_gb) / s.disk_total_gb) * 100) : 0;
-                const users = (s.active_users || []).length > 0 ? s.active_users.join(", ") : "Oturum Yok";
-                const upsIcon = s.ups_status === "ON_BATTERY" ? `⚡ AKÜDE (%${s.ups_battery_pct})` : `🔌 Şebeke (%${s.ups_battery_pct})`;
 
                 return `
-                <div class="srv-card ${online ? 'online' : 'offline'}">
-                    <div class="srv-header">
-                        <div>
-                            <div class="srv-name">${s.server_id}</div>
+                <div class="srv-row ${online ? 'online' : 'offline'}">
+                    <!-- 1. Sütun: Sunucu & IP -->
+                    <div class="srv-info-cell">
+                        <div class="srv-status-dot ${online ? 'online' : 'offline'}"></div>
+                        <div style="min-width:0; flex:1;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="srv-name">${s.server_id}</div>
+                                <span class="badge ${online ? 'badge-online' : 'badge-offline'}" style="font-size:10px; padding:1px 7px;">
+                                    ${online ? 'ONLINE' : 'KESİNTİ (' + s.last_seen_sec_ago + 'sn)'}
+                                </span>
+                            </div>
                             <div class="srv-sub">${s.hostname} • İç IP: ${s.ip_address}</div>
                         </div>
-                        <span class="badge ${online ? 'badge-online' : 'badge-offline'}">
-                            ${online ? 'ONLINE' : 'KESİNTİ (' + s.last_seen_sec_ago + 'sn)'}
-                        </span>
                     </div>
 
-                    <div class="metrics-bars">
-                        <div class="metric-row">
-                            <div class="metric-label"><span>CPU Kullanımı</span><span>%${s.cpu_percent}</span></div>
-                            <div class="progress"><div class="progress-fill" style="width:${s.cpu_percent}%; background:${getBarColor(s.cpu_percent)}"></div></div>
+                    <!-- 2. Sütun: CPU -->
+                    <div class="metric-cell">
+                        <div class="metric-label">
+                            <span style="color:#94a3b8;">CPU</span>
+                            <span style="color:${getBarColor(s.cpu_percent)}; font-weight:700;">%${s.cpu_percent}</span>
                         </div>
-                        <div class="metric-row">
-                            <div class="metric-label"><span>RAM Kullanımı (${s.total_ram_gb} GB)</span><span>%${s.ram_percent}</span></div>
-                            <div class="progress"><div class="progress-fill" style="width:${s.ram_percent}%; background:${getBarColor(s.ram_percent)}"></div></div>
-                        </div>
-                        <div class="metric-row">
-                            <div class="metric-label"><span>Disk C: (Boş: ${s.disk_free_gb} / ${s.disk_total_gb} GB)</span><span>%${diskUsedPct}</span></div>
-                            <div class="progress"><div class="progress-fill" style="width:${diskUsedPct}%; background:${getBarColor(diskUsedPct)}"></div></div>
-                        </div>
+                        <div class="progress"><div class="progress-fill" style="width:${Math.max(4, s.cpu_percent)}%; background:${getBarColor(s.cpu_percent)}"></div></div>
                     </div>
 
-                    <div class="srv-actions" style="margin-top:14px;">
-                        <button style="background:#581c87; border-color:#a855f7; color:#f3e8ff;" onclick="openKahinModal('${s.server_id}')">🔮 Kahin Falı</button>
-                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Otonom Politikalar</button>
-                        <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
-                        <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
-                        <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')" title="Sunucu Kaydını Sil">🗑️ Sil</button>
+                    <!-- 3. Sütun: RAM -->
+                    <div class="metric-cell">
+                        <div class="metric-label">
+                            <span style="color:#94a3b8;">${s.total_ram_gb} GB</span>
+                            <span style="color:${getBarColor(s.ram_percent)}; font-weight:700;">%${s.ram_percent}</span>
+                        </div>
+                        <div class="progress"><div class="progress-fill" style="width:${Math.max(4, s.ram_percent)}%; background:${getBarColor(s.ram_percent)}"></div></div>
+                    </div>
+
+                    <!-- 4. Sütun: Disk C: -->
+                    <div class="metric-cell">
+                        <div class="metric-label">
+                            <span style="color:#94a3b8;">${s.disk_free_gb}/${s.disk_total_gb} GB Boş</span>
+                            <span style="color:${getBarColor(diskUsedPct)}; font-weight:700;">%${diskUsedPct}</span>
+                        </div>
+                        <div class="progress"><div class="progress-fill" style="width:${Math.max(4, diskUsedPct)}%; background:${getBarColor(diskUsedPct)}"></div></div>
+                    </div>
+
+                    <!-- 5. Sütun: Hızlı İşlemler -->
+                    <div class="srv-actions">
+                        <button style="background:#581c87; border-color:#a855f7; color:#f3e8ff;" onclick="openKahinModal('${s.server_id}')" title="Kahin Arıza Falı">🔮 Kahin</button>
+                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')" title="Sunucu Otonom Politikaları">⚙️ Politika</button>
+                        <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')" title="Hızlı Temp & Disk Temizliği">🧹 Temizle</button>
+                        <button onclick="runRecipeOnServer('${s.server_id}', 'quser')" title="Açık Kullanıcı Oturumları">👥 Açıklar</button>
+                        <button onclick="openCmdModal('${s.server_id}')" title="PowerShell Komut Terminali">💻 Komut</button>
+                        <button class="btn-danger" onclick="deleteServer('${s.server_id}')" title="Sunucu Kaydını Sil">🗑️</button>
                     </div>
                 </div>
                 `;
@@ -1110,19 +1105,26 @@
             <div class="customer-group">
                 <div class="customer-header">
                     <div class="customer-title">
-                        <span style="font-size:24px;">🏢</span>
+                        <span style="font-size:20px;">🏢</span>
                         <h2>${g.title}</h2>
+                        <span class="cust-tag" style="margin-left:6px;">🌐 WAN: ${g.wan_ip}</span>
+                        ${groupBadge}
                     </div>
                     <div class="customer-tags">
-                        <span class="cust-tag">🌐 Dış IP (WAN): ${g.wan_ip}</span>
-                        ${groupBadge}
                         <button class="btn-chat-open" onclick="openCustomerChat('${encodeURIComponent(g.title)}', '${g.wan_ip}')">
-                            💬 ${g.title} ile Konuş & İşlem Yap
+                            🎙️ ${g.title} Sesli Asistan & İşlem
                         </button>
                     </div>
                 </div>
-                <div class="servers-grid">
-                    ${cardsHtml}
+                <div class="srv-table-head">
+                    <div>SUNUCU & İÇ IP</div>
+                    <div>CPU YÜKÜ</div>
+                    <div>RAM KULLANIMI</div>
+                    <div>DİSK (C:) DURUMU</div>
+                    <div style="text-align:right;">HIZLI İŞLEMLER & POLİTİKA</div>
+                </div>
+                <div>
+                    ${rowsHtml}
                 </div>
             </div>
             `;
@@ -1138,10 +1140,9 @@
 
         if (alerts.length === 0) {
             container.innerHTML = `
-            <div style="text-align:center; padding:36px 16px; color:var(--text-muted);">
-                <div style="font-size:36px; margin-bottom:10px;">🛡️</div>
-                <div style="font-size:14px; font-weight:600; color:#e2e8f0; margin-bottom:4px;">Tüm Sistemler Güvende & Stabil</div>
-                <div style="font-size:12px;">Aktif kesinti, aşırı yük veya güvenlik ihlali bulunmuyor.</div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 12px; color:var(--text-muted); font-size:12.5px;">
+                <span style="font-size:18px;">🛡️</span>
+                <span><b style="color:#e2e8f0;">Tüm Sistemler Güvende & Stabil:</b> Aktif kesinti, aşırı yük veya güvenlik ihlali bulunmuyor.</span>
             </div>`;
             return;
         }
