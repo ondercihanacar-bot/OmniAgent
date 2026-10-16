@@ -608,13 +608,6 @@
     </div>
 </div>
 
-<div class="summary-banner">
-    <h3>🔮 Kahin Modu — Sade Öngörülü Sistem Raporu</h3>
-    <ul class="warning-list" id="predictiveList">
-        <li>✅ Tüm sistemler analiz ediliyor...</li>
-    </ul>
-</div>
-
 <div class="main-grid">
     <div>
         <div class="section-title">
@@ -795,6 +788,33 @@
     </div>
 </div>
 
+<!-- KAHİN / ARIZA FALI MODAL -->
+<div class="modal-backdrop" id="kahinModal" style="display:none;">
+    <div class="modal" style="max-width:580px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:32px;">🔮</span>
+                <div>
+                    <h3 style="margin:0; font-size:17px; color:#c084fc;" id="kahinModalTitle">Kahin Modu — Arıza Falı</h3>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">Geleceğe Dair Otonom Sistem & Donanım Tahminleri</div>
+                </div>
+            </div>
+            <button onclick="closeKahinModal()" style="background:none; border:none; color:#94a3b8; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+
+        <div id="kahinModalBody" style="background:#090d16; border:1px solid #3b0764; border-radius:10px; padding:16px; font-size:13.5px; line-height:1.6; color:#e2e8f0; max-height:60vh; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+            Yükleniyor...
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
+            <button style="background:#3b0764; border-color:#9333ea; color:#f3e8ff; display:flex; align-items:center; gap:6px;" onclick="speakKahinText()">
+                <span>🔊</span> <span>Falımı Sesli Oku</span>
+            </button>
+            <button class="btn-primary" onclick="closeKahinModal()">Tamam, Kapat</button>
+        </div>
+    </div>
+</div>
+
 <!-- WhatsApp & Bildirim Bağlama Modal -->
 <div class="modal-backdrop" id="waModal">
     <div class="modal">
@@ -917,6 +937,8 @@
         return "var(--green)";
     }
 
+    let currentKahinText = "";
+
     async function loadSummary() {
         const data = await apiCall("/api/reports/summary");
         document.getElementById("kpiTotal").innerText = data.total_servers || 0;
@@ -924,12 +946,43 @@
         document.getElementById("kpiOffline").innerText = data.offline_servers || 0;
         document.getElementById("kpiHealed").innerText = data.healed_issues_24h || 0;
         document.getElementById("kpiSec").innerText = data.security_events_24h || 0;
+    }
 
-        const ul = document.getElementById("predictiveList");
-        if (!data.predictive_warnings || data.predictive_warnings.length === 0) {
-            ul.innerHTML = "<li>🟢 <b>Tüm sunucular sağlıklı!</b> Yaklaşan disk doluluğu, elektrik kesintisi veya internet paket kaybı tespit edilmedi.</li>";
-        } else {
-            ul.innerHTML = data.predictive_warnings.map(w => `<li>${w}</li>`).join("");
+    async function openKahinModal(serverId) {
+        document.getElementById("kahinModalTitle").innerText = `🔮 [${serverId}] Arıza Falı & Kehanet`;
+        const bodyEl = document.getElementById("kahinModalBody");
+        bodyEl.innerHTML = `<div style="text-align:center; padding:20px; color:#94a3b8;">⏳ Kristal küreye bakılıyor, [${serverId}] telemetrisi inceleniyor...</div>`;
+        document.getElementById("kahinModal").style.display = "flex";
+
+        try {
+            const data = await apiCall("/api/reports/summary");
+            const allWarnings = data.predictive_warnings || [];
+            const serverWarnings = allWarnings.filter(w => w.includes(`[${serverId}]`));
+
+            if (serverWarnings.length === 0) {
+                bodyEl.innerHTML = `
+                    <div style="padding:12px; background:#064e3b; border-left:4px solid #10b981; border-radius:6px; color:#a7f3d0;">
+                        🟢 <b>Kahin Modu:</b> [${serverId}] sunucunuzun tüm sistemleri (Disk, RAM, Ağ ve Güç) kusursuz dengede. Yakın gelecekte bir kilitlenme veya donma riski görünmüyor.
+                    </div>
+                `;
+                currentKahinText = `Kahin Modu: ${serverId} sunucunuzun tüm sistemleri sağlıklı, yakın gelecekte bir kilitlenme veya donma riski görünmüyor.`;
+            } else {
+                bodyEl.innerHTML = serverWarnings.map(w => `<div style="padding:10px 12px; background:#111827; border-left:3px solid #a855f7; border-radius:6px;">${w}</div>`).join("");
+                currentKahinText = serverWarnings.map(w => w.replace(/<[^>]+>/g, '')).join(". ");
+            }
+        } catch (e) {
+            bodyEl.innerHTML = `<div style="color:#ef4444;">Fal alınırken hata: ${e.message}</div>`;
+        }
+    }
+
+    function closeKahinModal() {
+        document.getElementById("kahinModal").style.display = "none";
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+    }
+
+    function speakKahinText() {
+        if (currentKahinText) {
+            speakText(currentKahinText);
         }
     }
 
@@ -1019,7 +1072,8 @@
                     </div>
 
                     <div class="srv-actions" style="margin-top:14px;">
-                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Otonom Politika & Ayarlar</button>
+                        <button style="background:#581c87; border-color:#a855f7; color:#f3e8ff;" onclick="openKahinModal('${s.server_id}')">🔮 Kahin Falı</button>
+                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Otonom Politikalar</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
                         <button class="btn-danger" style="margin-left:auto;" onclick="deleteServer('${s.server_id}')" title="Sunucu Kaydını Sil">🗑️ Sil</button>
