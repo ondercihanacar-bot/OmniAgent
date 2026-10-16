@@ -1066,6 +1066,14 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": "server_id gerekli"})
             return
 
+        # 6b. Alarm ve Olay Günlüğünü Temizleme
+        if path == "/api/alerts/clear":
+            cur.execute("DELETE FROM alerts")
+            conn.commit()
+            conn.close()
+            self._send_json(200, {"status": "cleared"})
+            return
+
         # 7. Test Bildirimi Gönder
         if path == "/api/notifications/test":
             conn.close()

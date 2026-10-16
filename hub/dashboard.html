@@ -284,29 +284,93 @@
             transition: all 0.15s;
         }
 
-        /* Kompakt Alt Alarm Şeridi */
+        /* Ferah & Genişletilebilir Canlı Alarm & Olay Akışı */
+        .alerts-section {
+            background: #0d131f;
+            border: 1px solid #1e293b;
+            border-radius: 12px;
+            padding: 12px 18px;
+            margin-top: 14px;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+        }
+        .alerts-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #1e293b;
+        }
+        .alerts-filters {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .alert-filter-btn {
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .alert-filter-btn:hover { background: #334155; color: #fff; }
+        .alert-filter-btn.active {
+            background: #0284c7;
+            color: #fff;
+            border-color: #38bdf8;
+        }
         .alerts-box {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px 14px;
-            max-height: 150px;
+            background: transparent;
+            border: none;
+            padding: 8px 0 0 0;
+            max-height: 280px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.25s ease;
+        }
+        .alerts-box.collapsed {
+            max-height: 0;
+            overflow: hidden;
+            padding: 0;
+        }
+        .alerts-box.expanded {
+            max-height: 520px;
         }
         .alert-item {
-            padding: 12px;
-            border-radius: 10px;
-            background: #161f30;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: #111827;
+            border: 1px solid #1f2937;
             border-left: 4px solid var(--accent);
-            margin-bottom: 10px;
-            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: transform 0.15s ease, border-color 0.15s ease;
         }
-        .alert-item.CRITICAL { border-left-color: var(--red); background: rgba(239, 68, 68, 0.08); }
-        .alert-item.WARNING { border-left-color: var(--yellow); }
-        .alert-item.HEALED { border-left-color: var(--purple); background: rgba(168, 85, 247, 0.08); }
-        .alert-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-        .alert-title { font-weight: 700; color: #fff; margin-bottom: 3px; }
-        .alert-msg { white-space: pre-wrap; color: #cbd5e1; font-size: 12px; }
+        .alert-item:hover {
+            transform: translateX(2px);
+            border-color: #334155;
+        }
+        .alert-item.CRITICAL { border-left-color: var(--red); background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.25); }
+        .alert-item.WARNING { border-left-color: var(--yellow); background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.25); }
+        .alert-item.HEALED { border-left-color: var(--purple); background: rgba(168, 85, 247, 0.08); border-color: rgba(168, 85, 247, 0.25); }
+        .alert-item.INFO { border-left-color: var(--accent); background: rgba(56, 189, 248, 0.05); }
+        .alert-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); align-items: center; }
+        .alert-tag { padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 10.5px; }
+        .alert-tag.CRITICAL { background: #7f1d1d; color: #fca5a5; }
+        .alert-tag.WARNING { background: #78350f; color: #fde68a; }
+        .alert-tag.HEALED { background: #581c87; color: #f3e8ff; }
+        .alert-tag.INFO { background: #1e3a8a; color: #bae6fd; }
+        .alert-title { font-weight: 700; color: #fff; font-size: 13px; }
+        .alert-msg { white-space: pre-wrap; color: #cbd5e1; font-size: 12px; line-height: 1.4; }
 
         /* Modal */
         .modal-backdrop {
@@ -578,6 +642,10 @@
         </div>
     </div>
     <div class="header-actions">
+        <button id="btnHeaderAlerts" onclick="openAlertsModal()" style="background:#1e293b; border-color:#475569; display:inline-flex; align-items:center; gap:6px;" title="Tüm Olay ve Alarm Günlüğünü Aç">
+            <span>🚨 Alarmlar</span>
+            <span id="topAlertBadge" style="background:#475569; color:#fff; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:700;">0</span>
+        </button>
         <button style="background:#3730a3; border-color:#6366f1;" onclick="testMorningBriefing()" title="08:15 Sabah Bültenini Hemen Test Et">☕ Sabah Bülteni Test</button>
         <button style="background:#065f46; border-color:#10b981;" onclick="openWaModal()">📲 WhatsApp Bağla</button>
         <button onclick="sendTestAlert()">🔔 Test Bildirimi</button>
@@ -619,9 +687,26 @@
         <div id="serversContainer"></div>
     </div>
 
-    <div>
-        <div class="section-title">
-            <span>🚨 Canlı Alarm, Kesinti & Otonom Müdahale Akışı</span>
+    <!-- FERAH & GENİŞLETİLEBİLİR CANLI ALARM PANELİ -->
+    <div class="alerts-section">
+        <div class="alerts-header">
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <span style="font-size:18px;">🚨</span>
+                <b style="font-size:14px; color:#f8fafc;">Canlı Alarm & Otonom Müdahale Akışı</b>
+                <span id="alertsTotalBadge" class="cust-tag" style="background:#1e293b; color:#38bdf8; font-size:11px; padding:2px 8px;">0 Kayıt</span>
+            </div>
+            <div class="alerts-filters">
+                <button class="alert-filter-btn active" id="flt-ALL" onclick="filterAlerts('ALL')">Tümü (<span id="cnt-ALL">0</span>)</button>
+                <button class="alert-filter-btn" id="flt-CRITICAL" onclick="filterAlerts('CRITICAL')">🔴 Kritik (<span id="cnt-CRITICAL">0</span>)</button>
+                <button class="alert-filter-btn" id="flt-WARNING" onclick="filterAlerts('WARNING')">🟡 Uyarı (<span id="cnt-WARNING">0</span>)</button>
+                <button class="alert-filter-btn" id="flt-HEALED" onclick="filterAlerts('HEALED')">🟣 Onarılan (<span id="cnt-HEALED">0</span>)</button>
+                <button class="alert-filter-btn" id="flt-INFO" onclick="filterAlerts('INFO')">ℹ️ Bilgi (<span id="cnt-INFO">0</span>)</button>
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <button onclick="openAlertsModal()" title="Genişletilmiş Olay Günlüğü Modalı Aç" style="padding:5px 10px; font-size:11.5px; background:#1e293b; border-color:#334155;">⛶ Büyüt</button>
+                <button onclick="toggleAlertsHeight()" id="btnToggleAlerts" title="Alanı Genişlet / Standart Boy" style="padding:5px 10px; font-size:11.5px; background:#1e293b; border-color:#334155;">↕️ Genişlet</button>
+                <button onclick="clearAllAlerts()" title="Tüm Alarm Geçmişini Temizle" class="btn-danger" style="padding:5px 10px; font-size:11.5px;">🧹 Temizle</button>
+            </div>
         </div>
         <div class="alerts-box" id="alertsContainer"></div>
     </div>
@@ -814,6 +899,42 @@
                 <span>🔊</span> <span>Falımı Sesli Oku</span>
             </button>
             <button class="btn-primary" onclick="closeKahinModal()">Tamam, Kapat</button>
+        </div>
+    </div>
+</div>
+
+<!-- GENİŞLETİLMİŞ TAM EKRAN OLAY VE ALARM GÜNLÜĞÜ MODAL -->
+<div class="modal-backdrop" id="alertsModal" style="display:none;">
+    <div class="modal" style="max-width:880px; width:92%; max-height:88vh; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #1e293b; padding-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:24px;">🚨</span>
+                <div>
+                    <h3 style="margin:0; font-size:16px; color:#fff;">Canlı Alarm & Otonom Müdahale Günlüğü</h3>
+                    <div style="font-size:11.5px; color:var(--text-muted);">Sistem kesintileri, otonom onarımlar, brute-force ve güvenlik kayıtları</div>
+                </div>
+            </div>
+            <button onclick="closeAlertsModal()" style="background:none; border:none; color:#94a3b8; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+            <div class="alerts-filters">
+                <button class="alert-filter-btn active" id="modal-flt-ALL" onclick="filterModalAlerts('ALL')">Tümü</button>
+                <button class="alert-filter-btn" id="modal-flt-CRITICAL" onclick="filterModalAlerts('CRITICAL')">🔴 Kritik</button>
+                <button class="alert-filter-btn" id="modal-flt-WARNING" onclick="filterModalAlerts('WARNING')">🟡 Uyarı</button>
+                <button class="alert-filter-btn" id="modal-flt-HEALED" onclick="filterModalAlerts('HEALED')">🟣 Onarılan</button>
+                <button class="alert-filter-btn" id="modal-flt-INFO" onclick="filterModalAlerts('INFO')">ℹ️ Bilgi</button>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" id="modalAlertSearch" placeholder="Sunucu veya metin ara..." oninput="searchModalAlerts(this.value)" style="background:#090d16; border:1px solid #334155; color:#fff; border-radius:6px; padding:6px 12px; font-size:12px; width:220px; outline:none;">
+                <button onclick="clearAllAlerts()" class="btn-danger" style="padding:6px 12px; font-size:11.5px;">🧹 Tümünü Temizle</button>
+            </div>
+        </div>
+
+        <div id="modalAlertsContainer" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:4px; max-height:55vh;"></div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:14px; border-top:1px solid #1e293b; padding-top:10px;">
+            <button class="btn-primary" onclick="closeAlertsModal()">Tamam, Kapat</button>
         </div>
     </div>
 </div>
@@ -1133,33 +1254,188 @@
         document.getElementById("lastUpdateText").innerText = "Son Güncelleme: " + new Date().toLocaleTimeString();
     }
 
+    let cachedAlerts = [];
+    let currentAlertFilter = 'ALL';
+    let modalAlertFilter = 'ALL';
+    let modalAlertSearchTerm = '';
+
+    function renderAlertCard(a) {
+        const dt = new Date(a.timestamp * 1000).toLocaleString("tr-TR");
+        let icon = "ℹ️";
+        let tagClass = a.level || "INFO";
+        if (a.level === "CRITICAL") icon = "🔴";
+        else if (a.level === "WARNING") icon = "🟡";
+        else if (a.level === "HEALED") icon = "🟣";
+
+        return `
+        <div class="alert-item ${a.level}">
+            <div class="alert-meta">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="alert-tag ${tagClass}">${icon} ${a.level}</span>
+                    <span style="font-weight:700; color:#38bdf8;">[${a.server_id}]</span>
+                    <span style="background:#1e293b; padding:1px 6px; border-radius:4px; font-size:10.5px; color:#cbd5e1;">${a.category}</span>
+                </div>
+                <span style="color:#94a3b8; font-size:11px;">🕒 ${dt}</span>
+            </div>
+            <div class="alert-title">${a.title}</div>
+            <div class="alert-msg">${a.message}</div>
+        </div>
+        `;
+    }
+
     async function loadAlerts() {
         const data = await apiCall("/api/alerts");
-        const container = document.getElementById("alertsContainer");
-        const alerts = data.alerts || [];
+        cachedAlerts = data.alerts || [];
 
-        if (alerts.length === 0) {
+        // Sayaçları güncelle
+        const critCnt = cachedAlerts.filter(a => a.level === "CRITICAL").length;
+        const warnCnt = cachedAlerts.filter(a => a.level === "WARNING").length;
+        const healCnt = cachedAlerts.filter(a => a.level === "HEALED").length;
+        const infoCnt = cachedAlerts.filter(a => a.level === "INFO").length;
+
+        const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setEl("cnt-ALL", cachedAlerts.length);
+        setEl("cnt-CRITICAL", critCnt);
+        setEl("cnt-WARNING", warnCnt);
+        setEl("cnt-HEALED", healCnt);
+        setEl("cnt-INFO", infoCnt);
+        setEl("alertsTotalBadge", `${cachedAlerts.length} Kayıt`);
+
+        // Üst Header Alarm Rozetini güncelle
+        const topBadge = document.getElementById("topAlertBadge");
+        if (topBadge) {
+            topBadge.innerText = cachedAlerts.length;
+            if (critCnt > 0) {
+                topBadge.style.background = "#dc2626";
+                topBadge.style.boxShadow = "0 0 8px rgba(220, 38, 38, 0.8)";
+            } else if (warnCnt > 0) {
+                topBadge.style.background = "#d97706";
+                topBadge.style.boxShadow = "none";
+            } else {
+                topBadge.style.background = "#475569";
+                topBadge.style.boxShadow = "none";
+            }
+        }
+
+        renderMainAlerts();
+    }
+
+    function renderMainAlerts() {
+        const container = document.getElementById("alertsContainer");
+        if (!container) return;
+
+        let filtered = cachedAlerts;
+        if (currentAlertFilter !== 'ALL') {
+            filtered = cachedAlerts.filter(a => a.level === currentAlertFilter);
+        }
+
+        if (cachedAlerts.length === 0) {
             container.innerHTML = `
-            <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:6px 12px; color:var(--text-muted); font-size:12.5px;">
-                <span style="font-size:18px;">🛡️</span>
+            <div style="display:flex; align-items:center; justify-content:center; gap:10px; padding:18px 12px; color:var(--text-muted); font-size:12.5px;">
+                <span style="font-size:22px;">🛡️</span>
                 <span><b style="color:#e2e8f0;">Tüm Sistemler Güvende & Stabil:</b> Aktif kesinti, aşırı yük veya güvenlik ihlali bulunmuyor.</span>
             </div>`;
             return;
         }
 
-        container.innerHTML = alerts.map(a => {
-            const dt = new Date(a.timestamp * 1000).toLocaleString("tr-TR");
-            return `
-            <div class="alert-item ${a.level}">
-                <div class="alert-meta">
-                    <span><b>[${a.server_id}]</b> • ${a.category}</span>
-                    <span>${dt}</span>
-                </div>
-                <div class="alert-title">${a.title}</div>
-                <div class="alert-msg">${a.message}</div>
-            </div>
-            `;
-        }).join("");
+        if (filtered.length === 0) {
+            container.innerHTML = `
+            <div style="text-align:center; padding:18px 12px; color:var(--text-muted); font-size:12px;">
+                Seçilen (${currentAlertFilter}) seviyesinde kayıtlı alarm bulunmuyor.
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(renderAlertCard).join("");
+    }
+
+    function filterAlerts(level) {
+        currentAlertFilter = level;
+        document.querySelectorAll(".alerts-filters .alert-filter-btn").forEach(b => {
+            b.classList.remove("active");
+        });
+        const activeBtn = document.getElementById(`flt-${level}`);
+        if (activeBtn) activeBtn.classList.add("active");
+        renderMainAlerts();
+    }
+
+    function toggleAlertsHeight() {
+        const box = document.getElementById("alertsContainer");
+        const btn = document.getElementById("btnToggleAlerts");
+        if (!box) return;
+        if (box.classList.contains("expanded")) {
+            box.classList.remove("expanded");
+            if (btn) btn.innerText = "↕️ Genişlet";
+        } else {
+            box.classList.add("expanded");
+            if (btn) btn.innerText = "↕️ Standart";
+        }
+    }
+
+    async function clearAllAlerts() {
+        if (!confirm("Tüm alarm ve olay kayıtları kalıcı olarak temizlensin mi?")) return;
+        try {
+            await apiCall("/api/alerts/clear", "POST", {});
+            await loadAlerts();
+            renderModalAlerts(modalAlertFilter, modalAlertSearchTerm);
+        } catch (e) {
+            alert("Temizleme hatası: " + e.message);
+        }
+    }
+
+    function openAlertsModal() {
+        modalAlertFilter = 'ALL';
+        modalAlertSearchTerm = '';
+        const searchInput = document.getElementById("modalAlertSearch");
+        if (searchInput) searchInput.value = "";
+        renderModalAlerts('ALL', '');
+        document.getElementById("alertsModal").style.display = "flex";
+    }
+
+    function closeAlertsModal() {
+        document.getElementById("alertsModal").style.display = "none";
+    }
+
+    function filterModalAlerts(level) {
+        modalAlertFilter = level;
+        document.querySelectorAll("#alertsModal .alert-filter-btn").forEach(b => b.classList.remove("active"));
+        const btn = document.getElementById(`modal-flt-${level}`);
+        if (btn) btn.classList.add("active");
+        renderModalAlerts(level, modalAlertSearchTerm);
+    }
+
+    function searchModalAlerts(term) {
+        modalAlertSearchTerm = term.toLowerCase().trim();
+        renderModalAlerts(modalAlertFilter, modalAlertSearchTerm);
+    }
+
+    function renderModalAlerts(level, term) {
+        const container = document.getElementById("modalAlertsContainer");
+        if (!container) return;
+
+        let filtered = cachedAlerts;
+        if (level !== 'ALL') {
+            filtered = filtered.filter(a => a.level === level);
+        }
+        if (term) {
+            filtered = filtered.filter(a =>
+                (a.server_id && a.server_id.toLowerCase().includes(term)) ||
+                (a.title && a.title.toLowerCase().includes(term)) ||
+                (a.message && a.message.toLowerCase().includes(term)) ||
+                (a.category && a.category.toLowerCase().includes(term))
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = `
+            <div style="text-align:center; padding:32px 14px; color:var(--text-muted); font-size:13px;">
+                <div style="font-size:32px; margin-bottom:8px;">🔍</div>
+                Kriterlere uygun olay veya alarm kaydı bulunamadı.
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = filtered.map(renderAlertCard).join("");
     }
 
     function openCmdModal(serverId) {
