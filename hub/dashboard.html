@@ -688,6 +688,125 @@
     </div>
 </div>
 
+<!-- OTONOM POLİTİKA & AYAR MODAL -->
+<div class="modal-backdrop" id="policyModal" style="display:none;">
+    <div class="modal" style="max-width:680px; max-height:90vh; overflow-y:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+            <div>
+                <h3 style="margin:0; font-size:17px; display:flex; align-items:center; gap:8px;">
+                    <span>⚙️</span> Otonom Politika & Özellik Yönetim Merkezi
+                </h3>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+                    Hedef: <b id="policyTargetName" style="color:var(--accent);">...</b> (<span id="policyCustName">...</span>)
+                </div>
+            </div>
+            <button onclick="closePolicyModal()" style="background:none; border:none; color:#94a3b8; font-size:24px; cursor:pointer; line-height:1;">&times;</button>
+        </div>
+
+        <input type="hidden" id="policyTargetType">
+        <input type="hidden" id="policyTargetId">
+        <input type="hidden" id="policyCustomerName">
+
+        <div id="policyApplyAllContainer" style="background:#172554; border:1px solid #1d4ed8; padding:10px 14px; border-radius:8px; margin-bottom:14px; font-size:12.5px; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" id="policyApplyAll" style="width:16px; height:16px; accent-color:#38bdf8; cursor:pointer;">
+            <label for="policyApplyAll" style="cursor:pointer; font-weight:600; color:#e0f2fe;">
+                Bu ayarları aynı zamanda bu müşterinin (tüm sunucularına) tek tıkla uygula
+            </label>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:12px;">
+            <!-- 1. Hayalet Oturum Avcısı -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:14px; border-radius:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div>
+                        <b style="color:#f8fafc; font-size:13.5px;">👻 Hayalet Oturum Avcısı (Ghost Session Killer)</b>
+                        <div style="font-size:11.5px; color:#94a3b8;">Askıda veya Disconnected kalan oturumları kapatıp SQL ve RDP kilitlerini çözer.</div>
+                    </div>
+                    <input type="checkbox" id="polGhostEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+                    <div>
+                        <label style="font-size:11px; color:#cbd5e1; display:block; margin-bottom:4px;">Oturum Zaman Aşımı:</label>
+                        <select id="polGhostMins" style="width:100%; background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:6px 8px; border-radius:6px; font-size:12px; font-weight:bold; outline:none;">
+                            <option value="10">10 Dakika</option>
+                            <option value="20">20 Dakika</option>
+                            <option value="30">30 Dakika</option>
+                            <option value="60">1 Saat</option>
+                            <option value="120">2 Saat (Önerilen)</option>
+                            <option value="180">3 Saat</option>
+                            <option value="240">4 Saat</option>
+                            <option value="300">5 Saat</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px; color:#cbd5e1; display:block; margin-bottom:4px;">Hariç Tutulan Kullanıcılar:</label>
+                        <input type="text" id="polGhostExclude" placeholder="Administrator, admin.senkron" style="width:100%; background:#1e293b; color:#fff; border:1px solid #334155; padding:6px 8px; border-radius:6px; font-size:12px; outline:none;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Otonom Disk Temizliği -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🧹 Otonom Derin Disk Temizliği</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">C: Diski %88 doluluğu aşınca Temp, Windows Update ve Geri Dönüşümü otomatik süpürür.</div>
+                </div>
+                <input type="checkbox" id="polDiskCleanEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+
+            <!-- 3. Brute Force & Güvenlik Duvarı -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🛡️ RDP Brute-Force Saldırı Engelleme</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">10 dakikada 5+ hatalı şifre deneyen saldırgan IP'yi Windows Firewall'da otonom kilitler.</div>
+                </div>
+                <input type="checkbox" id="polBruteEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+
+            <!-- 4. Yönetici Denetim Takibi (Audit Trail) -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🔍 Yönetici Hareket Takibi (Audit Trail - "Kim Neyi Değiştirdi?")</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">Yeni Admin açılması, güvenlik duvarı kapatılması ve kritik servis durdurmalarını bildirir.</div>
+                </div>
+                <input type="checkbox" id="polAuditEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+
+            <!-- 5. Mesai Dışı Giriş Alarmları -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🌙 Mesai Dışı Sunucu Giriş Alarmları</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">Mesai bitimi sonrasında veya hafta sonu sunucuya oturum açıldığında acil bildirim atar.</div>
+                </div>
+                <input type="checkbox" id="polAfterHoursEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+
+            <!-- 6. Elektrik & UPS Akü Alarmları -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🔋 Elektrik Kesintisi & UPS Akü Takibi</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">Şebeke elektriği kesildiğinde ve UPS aküsüne geçildiğinde anında bildirir.</div>
+                </div>
+                <input type="checkbox" id="polPowerEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+
+            <!-- 7. İnternet Kesintisi & Kara Kutu Analizi -->
+            <div style="background:#0f172a; border:1px solid #1e293b; padding:12px 14px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="color:#f8fafc; font-size:13px;">🌐 İnternet Kesintisi & Kara Kutu Analizi</b>
+                    <div style="font-size:11.5px; color:#94a3b8;">İnternet koptuğunda süreyi ve kök nedeni (ISS / Switch / Firewall) hafızaya alıp raporlar.</div>
+                </div>
+                <input type="checkbox" id="polInternetEnabled" style="accent-color:#10b981; width:22px; height:22px; cursor:pointer;">
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px; border-top:1px solid #1e293b; padding-top:14px;">
+            <button onclick="closePolicyModal()">Vazgeç</button>
+            <button class="btn-primary" onclick="saveCurrentPolicy()">💾 Politikayı Kaydet ve Ajanlara Gönder</button>
+        </div>
+    </div>
+</div>
+
 <!-- WhatsApp & Bildirim Bağlama Modal -->
 <div class="modal-backdrop" id="waModal">
     <div class="modal">
@@ -921,6 +1040,7 @@
 
                     <div class="srv-actions">
                         <button class="btn-primary" onclick="openCmdModal('${s.server_id}')">💻 Komut / Müdahale</button>
+                        <button style="background:#312e81; border-color:#6366f1; color:#c7d2fe;" onclick="openPolicyModal('SERVER', '${s.server_id}', '${encodeURIComponent(g.title)}')">⚙️ Politikalar</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'clean_temp')">🧹 Hızlı Temizlik</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'quser')">👥 Kimler Açık?</button>
                         <button onclick="runRecipeOnServer('${s.server_id}', 'top_ram')">📊 RAM Analizi</button>
@@ -941,6 +1061,9 @@
                         <span class="cust-tag">🌐 Dış IP (WAN): ${g.wan_ip}</span>
                         <span class="cust-tag">🖥️ ${g.servers.length} Sunucu</span>
                         ${groupBadge}
+                        <button class="btn-chat-open" style="background:linear-gradient(135deg, #312e81, #4338ca); border-color:#6366f1;" onclick="openPolicyModal('CUSTOMER', '${encodeURIComponent(g.title)}', '${encodeURIComponent(g.title)}')">
+                            ⚙️ Müşteri Politikaları
+                        </button>
                         <button class="btn-chat-open" onclick="openCustomerChat('${encodeURIComponent(g.title)}', '${g.wan_ip}')">
                             💬 ${g.title} ile Konuş & İşlem Yap
                         </button>
@@ -1377,6 +1500,88 @@
             refreshAll();
         } catch (e) {
             alert("Bülten testi hatası: " + e.message);
+        }
+    }
+
+    /* ============================================================== */
+    /* ⚙️ GRANÜLER MÜŞTERİ & SUNUCU OTONOM POLİTİKA YÖNETİMİ */
+    /* ============================================================== */
+    async function openPolicyModal(type, targetId, custName) {
+        targetId = decodeURIComponent(targetId);
+        custName = decodeURIComponent(custName);
+
+        document.getElementById("policyTargetType").value = type;
+        document.getElementById("policyTargetId").value = targetId;
+        document.getElementById("policyCustomerName").value = custName;
+
+        document.getElementById("policyTargetName").innerText = targetId;
+        document.getElementById("policyCustName").innerText = (type === "CUSTOMER") ? "Müşteri Grubu" : custName;
+
+        const applyAllBox = document.getElementById("policyApplyAllContainer");
+        const applyAllCheck = document.getElementById("policyApplyAll");
+        if (type === "CUSTOMER") {
+            applyAllBox.style.display = "none";
+            applyAllCheck.checked = true;
+        } else {
+            applyAllBox.style.display = "flex";
+            applyAllCheck.checked = false;
+        }
+
+        try {
+            const q = (type === "SERVER") ? `server_id=${encodeURIComponent(targetId)}&customer_name=${encodeURIComponent(custName)}` : `customer_name=${encodeURIComponent(targetId)}`;
+            const p = await apiCall(`/api/policies?${q}`);
+
+            document.getElementById("polGhostEnabled").checked = Boolean(p.ghost_session_enabled);
+            document.getElementById("polGhostMins").value = String(p.ghost_session_max_idle_min || 120);
+            document.getElementById("polGhostExclude").value = p.ghost_session_exclude_users || "Administrator, admin.senkron";
+            document.getElementById("polDiskCleanEnabled").checked = Boolean(p.auto_disk_clean_enabled);
+            document.getElementById("polBruteEnabled").checked = Boolean(p.brute_force_block_enabled);
+            document.getElementById("polAuditEnabled").checked = Boolean(p.audit_trail_enabled);
+            document.getElementById("polAfterHoursEnabled").checked = Boolean(p.after_hours_alert_enabled);
+            document.getElementById("polPowerEnabled").checked = Boolean(p.power_ups_alert_enabled);
+            document.getElementById("polInternetEnabled").checked = Boolean(p.internet_outage_alert_enabled);
+
+            document.getElementById("policyModal").style.display = "flex";
+        } catch (e) {
+            alert("Politikalar yüklenemedi: " + e.message);
+        }
+    }
+
+    function closePolicyModal() {
+        document.getElementById("policyModal").style.display = "none";
+    }
+
+    async function saveCurrentPolicy() {
+        const type = document.getElementById("policyTargetType").value;
+        const targetId = document.getElementById("policyTargetId").value;
+        const custName = document.getElementById("policyCustomerName").value;
+        const applyAll = document.getElementById("policyApplyAll").checked || (type === "CUSTOMER");
+
+        const payload = {
+            target_type: type,
+            target_id: targetId,
+            customer_name: custName,
+            apply_to_all_customer_servers: applyAll,
+            ghost_session_enabled: document.getElementById("polGhostEnabled").checked,
+            ghost_session_max_idle_min: parseInt(document.getElementById("polGhostMins").value),
+            ghost_session_exclude_users: document.getElementById("polGhostExclude").value.trim(),
+            auto_disk_clean_enabled: document.getElementById("polDiskCleanEnabled").checked,
+            brute_force_block_enabled: document.getElementById("polBruteEnabled").checked,
+            brute_force_threshold: 5,
+            audit_trail_enabled: document.getElementById("polAuditEnabled").checked,
+            after_hours_alert_enabled: document.getElementById("polAfterHoursEnabled").checked,
+            power_ups_alert_enabled: document.getElementById("polPowerEnabled").checked,
+            internet_outage_alert_enabled: document.getElementById("polInternetEnabled").checked,
+            file_hog_scan_enabled: true
+        };
+
+        try {
+            await apiCall("/api/policies/save", "POST", payload);
+            closePolicyModal();
+            alert(`✅ [${targetId}] için otonom yönetim politikası başarıyla kaydedildi!\n\nAjanlar bir sonraki kalp atışında (en geç 6 saniye içinde) yeni kuralları otonom olarak devreye alacaktır.`);
+            refreshAll();
+        } catch (e) {
+            alert("Politika kaydedilemedi: " + e.message);
         }
     }
 

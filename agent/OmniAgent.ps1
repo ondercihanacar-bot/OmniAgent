@@ -39,7 +39,11 @@ $script:BlockedIps = @{}
 $script:ConsecutiveWanFailures = 0
 $script:ConsecutiveHubFailures = 0
 $script:GhostMaxIdle = 120
+$script:GhostKillerEnabled = $true
 $script:GhostExcludeUsers = @("Administrator", "admin.senkron")
+$script:AutoDiskCleanEnabled = $true
+$script:AuditTrailEnabled = $true
+$script:BruteForceEnabled = $true
 $script:LastAuditCheck = (Get-Date).AddMinutes(-5)
 
 # İntihar / Tehlikeli Komut Kara Listesi
@@ -341,7 +345,7 @@ function Invoke-SelfHealing {
     }
 
     # 2. Disk Doluluğu Otonom Derin Temizliği
-    if ($DiskTotalGb -gt 0) {
+    if ($script:AutoDiskCleanEnabled -and $DiskTotalGb -gt 0) {
         $usedPct = (($DiskTotalGb - $DiskFreeGb) / $DiskTotalGb) * 100
         $threshold = if ($Config.AutoCleanDiskThresholdPct) { [double]$Config.AutoCleanDiskThresholdPct } else { 88 }
         if ($usedPct -ge $threshold -and ((Get-Date) - $script:LastDiskCleanTime).TotalHours -ge 6) {
@@ -676,10 +680,13 @@ while ($true) {
         $ups = Get-UpsStatus
         $sessions = Get-ActiveSessionsAndNewLogins
         $heal = Invoke-SelfHealing -DiskFreeGb $diskFreeGb -DiskTotalGb $diskTotalGb
-        $ghostKilled = Invoke-GhostSessionKiller -MaxIdleMinutes $script:GhostMaxIdle -ExcludeUsers $script:GhostExcludeUsers
+        $ghostKilled = @()
+        if ($script:GhostKillerEnabled -and $script:GhostMaxIdle -gt 0) {
+            $ghostKilled = Invoke-GhostSessionKiller -MaxIdleMinutes $script:GhostMaxIdle -ExcludeUsers $script:GhostExcludeUsers
+        }
         $allHealed = @($heal.healed_events) + @($ghostKilled)
-        $auditEvts = Invoke-AuditTrailGuard
-        $secEvents = Invoke-SecurityAndBruteForceGuard
+        $auditEvts = if ($script:AuditTrailEnabled) { Invoke-AuditTrailGuard } else { @() }
+        $secEvents = if ($script:BruteForceEnabled) { Invoke-SecurityAndBruteForceGuard } else { @() }
         $backupSt = Get-BackupStatus
 
         # Eğer internet kesintisinden yeni çıkıldıysa Kara Kutu raporunu al
@@ -736,8 +743,21 @@ while ($true) {
             if ($null -ne $hbRes.ghost_session_max_idle_min) {
                 $script:GhostMaxIdle = [int]$hbRes.ghost_session_max_idle_min
             }
-            if ($null -ne $hbRes.ghost_session_enabled -and (-not $hbRes.ghost_session_enabled)) {
-                $script:GhostMaxIdle = 0
+            if ($null -ne $hbRes.ghost_session_enabled) {
+                $script:GhostKillerEnabled = [bool]$hbRes.ghost_session_enabled
+                if (-not $script:GhostKillerEnabled) { $script:GhostMaxIdle = 0 }
+            }
+            if ($null -ne $hbRes.ghost_session_exclude_users) {
+                $script:GhostExcludeUsers = @($hbRes.ghost_session_exclude_users)
+            }
+            if ($null -ne $hbRes.auto_disk_clean_enabled) {
+                $script:AutoDiskCleanEnabled = [bool]$hbRes.auto_disk_clean_enabled
+            }
+            if ($null -ne $hbRes.audit_trail_enabled) {
+                $script:AuditTrailEnabled = [bool]$hbRes.audit_trail_enabled
+            }
+            if ($null -ne $hbRes.brute_force_block_enabled) {
+                $script:BruteForceEnabled = [bool]$hbRes.brute_force_block_enabled
             }
         }
 

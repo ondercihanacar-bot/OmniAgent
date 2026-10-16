@@ -106,6 +106,27 @@ def init_db():
     )
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS server_policies (
+        target_id TEXT PRIMARY KEY,
+        target_type TEXT,
+        customer_name TEXT DEFAULT '',
+        server_id TEXT DEFAULT '',
+        ghost_session_enabled INTEGER DEFAULT 1,
+        ghost_session_max_idle_min INTEGER DEFAULT 120,
+        ghost_session_exclude_users TEXT DEFAULT 'Administrator,admin.senkron',
+        auto_disk_clean_enabled INTEGER DEFAULT 1,
+        brute_force_block_enabled INTEGER DEFAULT 1,
+        brute_force_threshold INTEGER DEFAULT 5,
+        audit_trail_enabled INTEGER DEFAULT 1,
+        after_hours_alert_enabled INTEGER DEFAULT 1,
+        power_ups_alert_enabled INTEGER DEFAULT 1,
+        internet_outage_alert_enabled INTEGER DEFAULT 1,
+        file_hog_scan_enabled INTEGER DEFAULT 1,
+        updated_at REAL
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -114,6 +135,51 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def get_effective_policy(server_id, customer_name=""):
+    """
+    Öncelik Sırası:
+    1. Sunucuya Özel Politika (SERVER:<server_id>)
+    2. Müşteriye Özel Politika (CUSTOMER:<customer_name>)
+    3. Genel Sistem Varsayılanları (hub_config.json)
+    """
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM server_policies WHERE target_id = ?", (f"SERVER:{server_id}",))
+    r = cur.fetchone()
+    if not r and customer_name:
+        cur.execute("SELECT * FROM server_policies WHERE target_id = ?", (f"CUSTOMER:{customer_name}",))
+        r = cur.fetchone()
+    conn.close()
+
+    curr_cfg = load_config()
+    gsk_global = curr_cfg.get("ghost_session_killer", {})
+
+    default_policy = {
+        "target_id": f"SERVER:{server_id}",
+        "target_type": "SERVER",
+        "customer_name": customer_name,
+        "server_id": server_id,
+        "is_custom": False,
+        "ghost_session_enabled": 1 if gsk_global.get("enabled", True) else 0,
+        "ghost_session_max_idle_min": int(gsk_global.get("max_idle_minutes", 120)),
+        "ghost_session_exclude_users": ",".join(gsk_global.get("exclude_users", ["Administrator", "admin.senkron"])),
+        "auto_disk_clean_enabled": 1,
+        "brute_force_block_enabled": 1,
+        "brute_force_threshold": 5,
+        "audit_trail_enabled": 1,
+        "after_hours_alert_enabled": 1,
+        "power_ups_alert_enabled": 1,
+        "internet_outage_alert_enabled": 1,
+        "file_hog_scan_enabled": 1
+    }
+
+    if r:
+        d = dict(r)
+        d["is_custom"] = True
+        return d
+    return default_policy
 
 
 def record_alert(server_id, level, category, title, message, notify=True):
@@ -535,6 +601,16 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"status": "sent", "briefing": txt})
             return
 
+        if path == "/api/policies":
+            from urllib.parse import parse_qs
+            qs = parse_qs(parsed.query)
+            sid = qs.get("server_id", [""])[0]
+            cname = qs.get("customer_name", [""])[0]
+            conn.close()
+            policy = get_effective_policy(sid, cname)
+            self._send_json(200, policy)
+            return
+
         conn.close()
         self._send_json(404, {"error": "Endpoint bulunamadı"})
 
@@ -785,12 +861,16 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             conn.commit()
             conn.close()
 
-            curr_cfg = load_config()
-            gsk = curr_cfg.get("ghost_session_killer", {})
+            policy = get_effective_policy(sid, data.get("customer_name", sid))
             self._send_json(200, {
                 "status": "ok",
-                "ghost_session_enabled": gsk.get("enabled", True),
-                "ghost_session_max_idle_min": gsk.get("max_idle_minutes", 120)
+                "ghost_session_enabled": bool(policy.get("ghost_session_enabled", 1)),
+                "ghost_session_max_idle_min": int(policy.get("ghost_session_max_idle_min", 120)),
+                "ghost_session_exclude_users": [u.strip() for u in policy.get("ghost_session_exclude_users", "Administrator,admin.senkron").split(",") if u.strip()],
+                "auto_disk_clean_enabled": bool(policy.get("auto_disk_clean_enabled", 1)),
+                "brute_force_block_enabled": bool(policy.get("brute_force_block_enabled", 1)),
+                "audit_trail_enabled": bool(policy.get("audit_trail_enabled", 1)),
+                "after_hours_alert_enabled": bool(policy.get("after_hours_alert_enabled", 1))
             })
             return
 
@@ -854,6 +934,121 @@ class OmniHubHandler(BaseHTTPRequestHandler):
             conn.close()
             ok = save_config(data)
             self._send_json(200, {"status": "saved" if ok else "error"})
+            return
+
+        # 5.1 Granüler Müşteri & Sunucu Otonom Politika Kaydı
+        if path == "/api/policies/save":
+            target_type = data.get("target_type", "SERVER")
+            target_id = str(data.get("target_id", "")).strip()
+            cname = str(data.get("customer_name", "")).strip()
+            apply_all = bool(data.get("apply_to_all_customer_servers", False))
+
+            if not target_id:
+                conn.close()
+                self._send_json(400, {"error": "target_id zorunlu"})
+                return
+
+            t_key = f"{target_type}:{target_id}"
+            ghost_en = 1 if data.get("ghost_session_enabled", True) else 0
+            ghost_mins = int(data.get("ghost_session_max_idle_min", 120))
+            ghost_ex = str(data.get("ghost_session_exclude_users", "Administrator,admin.senkron"))
+            disk_clean = 1 if data.get("auto_disk_clean_enabled", True) else 0
+            brute_en = 1 if data.get("brute_force_block_enabled", True) else 0
+            brute_th = int(data.get("brute_force_threshold", 5))
+            audit_en = 1 if data.get("audit_trail_enabled", True) else 0
+            after_en = 1 if data.get("after_hours_alert_enabled", True) else 0
+            power_en = 1 if data.get("power_ups_alert_enabled", True) else 0
+            net_en = 1 if data.get("internet_outage_alert_enabled", True) else 0
+            hog_en = 1 if data.get("file_hog_scan_enabled", True) else 0
+
+            cur.execute("""
+                INSERT INTO server_policies (
+                    target_id, target_type, customer_name, server_id,
+                    ghost_session_enabled, ghost_session_max_idle_min, ghost_session_exclude_users,
+                    auto_disk_clean_enabled, brute_force_block_enabled, brute_force_threshold,
+                    audit_trail_enabled, after_hours_alert_enabled, power_ups_alert_enabled,
+                    internet_outage_alert_enabled, file_hog_scan_enabled, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(target_id) DO UPDATE SET
+                    ghost_session_enabled=excluded.ghost_session_enabled,
+                    ghost_session_max_idle_min=excluded.ghost_session_max_idle_min,
+                    ghost_session_exclude_users=excluded.ghost_session_exclude_users,
+                    auto_disk_clean_enabled=excluded.auto_disk_clean_enabled,
+                    brute_force_block_enabled=excluded.brute_force_block_enabled,
+                    brute_force_threshold=excluded.brute_force_threshold,
+                    audit_trail_enabled=excluded.audit_trail_enabled,
+                    after_hours_alert_enabled=excluded.after_hours_alert_enabled,
+                    power_ups_alert_enabled=excluded.power_ups_alert_enabled,
+                    internet_outage_alert_enabled=excluded.internet_outage_alert_enabled,
+                    file_hog_scan_enabled=excluded.file_hog_scan_enabled,
+                    updated_at=excluded.updated_at
+            """, (
+                t_key, target_type, cname, target_id if target_type == 'SERVER' else '',
+                ghost_en, ghost_mins, ghost_ex, disk_clean, brute_en, brute_th,
+                audit_en, after_en, power_en, net_en, hog_en, now
+            ))
+
+            if apply_all and cname:
+                c_key = f"CUSTOMER:{cname}"
+                cur.execute("""
+                    INSERT INTO server_policies (
+                        target_id, target_type, customer_name, server_id,
+                        ghost_session_enabled, ghost_session_max_idle_min, ghost_session_exclude_users,
+                        auto_disk_clean_enabled, brute_force_block_enabled, brute_force_threshold,
+                        audit_trail_enabled, after_hours_alert_enabled, power_ups_alert_enabled,
+                        internet_outage_alert_enabled, file_hog_scan_enabled, updated_at
+                    ) VALUES (?, 'CUSTOMER', ?, '', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(target_id) DO UPDATE SET
+                        ghost_session_enabled=excluded.ghost_session_enabled,
+                        ghost_session_max_idle_min=excluded.ghost_session_max_idle_min,
+                        ghost_session_exclude_users=excluded.ghost_session_exclude_users,
+                        auto_disk_clean_enabled=excluded.auto_disk_clean_enabled,
+                        brute_force_block_enabled=excluded.brute_force_block_enabled,
+                        brute_force_threshold=excluded.brute_force_threshold,
+                        audit_trail_enabled=excluded.audit_trail_enabled,
+                        after_hours_alert_enabled=excluded.after_hours_alert_enabled,
+                        power_ups_alert_enabled=excluded.power_ups_alert_enabled,
+                        internet_outage_alert_enabled=excluded.internet_outage_alert_enabled,
+                        file_hog_scan_enabled=excluded.file_hog_scan_enabled,
+                        updated_at=excluded.updated_at
+                """, (
+                    c_key, cname, ghost_en, ghost_mins, ghost_ex, disk_clean, brute_en, brute_th,
+                    audit_en, after_en, power_en, net_en, hog_en, now
+                ))
+
+                cur.execute("SELECT server_id FROM servers WHERE customer_name = ?", (cname,))
+                c_servers = [r["server_id"] for r in cur.fetchall()]
+                for csid in c_servers:
+                    cs_key = f"SERVER:{csid}"
+                    cur.execute("""
+                        INSERT INTO server_policies (
+                            target_id, target_type, customer_name, server_id,
+                            ghost_session_enabled, ghost_session_max_idle_min, ghost_session_exclude_users,
+                            auto_disk_clean_enabled, brute_force_block_enabled, brute_force_threshold,
+                            audit_trail_enabled, after_hours_alert_enabled, power_ups_alert_enabled,
+                            internet_outage_alert_enabled, file_hog_scan_enabled, updated_at
+                        ) VALUES (?, 'SERVER', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(target_id) DO UPDATE SET
+                            ghost_session_enabled=excluded.ghost_session_enabled,
+                            ghost_session_max_idle_min=excluded.ghost_session_max_idle_min,
+                            ghost_session_exclude_users=excluded.ghost_session_exclude_users,
+                            auto_disk_clean_enabled=excluded.auto_disk_clean_enabled,
+                            brute_force_block_enabled=excluded.brute_force_block_enabled,
+                            brute_force_threshold=excluded.brute_force_threshold,
+                            audit_trail_enabled=excluded.audit_trail_enabled,
+                            after_hours_alert_enabled=excluded.after_hours_alert_enabled,
+                            power_ups_alert_enabled=excluded.power_ups_alert_enabled,
+                            internet_outage_alert_enabled=excluded.internet_outage_alert_enabled,
+                            file_hog_scan_enabled=excluded.file_hog_scan_enabled,
+                            updated_at=excluded.updated_at
+                    """, (
+                        cs_key, cname, csid, ghost_en, ghost_mins, ghost_ex, disk_clean, brute_en, brute_th,
+                        audit_en, after_en, power_en, net_en, hog_en, now
+                    ))
+
+            conn.commit()
+            conn.close()
+            self._send_json(200, {"status": "saved", "target_id": target_id, "applied_all": apply_all})
             return
 
         # 6. Sunucu Kaydı Silme (Panelden veya API'den)
